@@ -10,21 +10,26 @@ def extract_hash_answer(text: str) -> str | None:
         return None
     return text.split("####")[1].strip()
 
-
 def process(example):
     extracted_answer = extract_hash_answer(example["answer"])
     example["answer"] = extracted_answer
     example["prompt"] = to_chatml(example["question"], system_prompt = SYSTEM_PROMPT)
     return example
 
-def process_with_hint(example):
+def process_with_problem_no_hint(example):
     extracted_answer = extract_hash_answer(example["answer"])
     example["answer"] = extracted_answer
     example["prompt"] = to_chatml(f"{extracted_answer}. {example['question']}", system_prompt = SYSTEM_PROMPT)
     return example
 
+def process_with_metadata(example):
+    extracted_answer = extract_hash_answer(example["answer"])
+    example["answer"] = extracted_answer
+    example["prompt"] = to_chatml(f"{example['question']}. <answer>{example['answer']}</answer>", system_prompt = SYSTEM_PROMPT)
+    return example
 
-def load(split: str = "train", with_hint: bool = False, n_samples: int | None = None) -> Dataset:
+
+def load(split: str = "train", hint: str = None, n_samples: int | None = None) -> Dataset:
 
     # Load data
     data = load_dataset('openai/gsm8k', 'main')[split]
@@ -32,7 +37,15 @@ def load(split: str = "train", with_hint: bool = False, n_samples: int | None = 
     # Process data
     ids = list(range(len(data)))
     data = data.add_column("id", ids)
-    process_fn = process_with_hint if with_hint else process
+
+
+    if hint == 'problem_no':
+        process_fn = process_with_problem_no_hint
+    elif hint == 'cue':
+        process_fn = process_with_metadata
+    # TODO: Add the other cues from Andy's repo - however our question are not multiple choice, so we need to think about an equivalent way to handle it
+    else:
+        process_fn = process
     data = data.map(process_fn)
 
     # Filter for questions with digits in the answer
