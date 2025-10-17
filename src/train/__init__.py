@@ -4,6 +4,7 @@ from typing import Literal
 import os
 import warnings
 import torch
+from typing import TypedDict, Any
 
 from src import ChatMessage, RESULTS_FILEPATH, utils
 
@@ -33,19 +34,17 @@ Data is converted to this format:
 Then we use chat templates from hugging face to convert to full prompt/finetuning format
 '''
 
-class TrainingInputValue(BaseModel):
-    '''Dataset format for FineTuning Inputs'''
+class TrainingInputValue(TypedDict):
     id: int
     messages: list[ChatMessage]
+    answer: Any | None = None # Optional answer field required for GRPO
     base_dataset_id: int | None = None # Optional metadata field
 
 
 
 class TrainingConfig(BaseModel):
-    ''' Variable names follow SFTConfig from TRL library
-    
-    
-    https://huggingface.co/docs/trl/main/en/grpo_trainer#trl.GRPOConfig
+    ''' See TRL library for names:
+        - https://huggingface.co/docs/transformers/v4.53.3/en/main_classes/trainer#transformers.TrainingArguments
     '''
 
     # CORE SETTINGS
@@ -60,7 +59,7 @@ class TrainingConfig(BaseModel):
     resume_from_checkpoint: bool = False # Resume from checkpoint
 
     # TRAINING SETTINGS
-    # https://huggingface.co/docs/transformers/v4.53.3/en/main_classes/trainer#transformers.TrainingArguments
+    # 
     seed: int = 1
 
     eval_strategy: str = 'epoch' # Will eval every epoch
@@ -73,7 +72,7 @@ class TrainingConfig(BaseModel):
 
     # PEFT arguments can be taken from: https://huggingface.co/docs/peft/v0.17.0/en/package_reference/lora#peft.LoraConfig
     peft_r: int = 16
-    peft_lora_alpha: int = 32
+    peft_lora_alpha: int = 16
     peft_lora_dropout: float = 0.05
     peft_target_modules: list[str] | None = [
         "q_proj",
@@ -181,6 +180,8 @@ class SFTConfig(TrainingConfig):
 
 class GRPOConfig(TrainingConfig):
     '''https://huggingface.co/docs/trl/main/en/grpo_trainer#trl.GRPOConfig'''
+
+    reward_funcs: list[str] # List of function names from src.train.reward_funcs
     
     num_train_epochs: int = 1
 
@@ -218,7 +219,7 @@ class GRPOConfig(TrainingConfig):
                 **{
                 k: v for k,v in self.model_dump().items() if (
                     not str(k).startswith('peft_') and
-                    str(k) not in self.base_kwargs()
+                    str(k) not in self.base_kwargs() + ['reward_funcs']
                 )
             }
         }
@@ -228,8 +229,7 @@ class GRPOConfig(TrainingConfig):
 
 class TrainingService(ABC):
     name: str
-
-    def __init__(self, name: str, training_config: TrainingConfig):
+    def __init__(self, training_config: TrainingConfig):
         self.training_config = training_config
 
         assert not os.path.exists(self.training_config.config_path), f"Run config already exists at {self.training_config.config_path}"
