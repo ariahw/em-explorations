@@ -162,6 +162,17 @@ class VLLMGenerator(LLMGenerator):
     
     def tokenize(self, input: str):
         return self.tokenizer.encode(input)
+
+    def turn_on_thinking(self):
+        import types
+        
+        orig_apply = self.tokenizer.apply_chat_template
+
+        def apply_with_thinking(self, *args, **kwargs):
+            kwargs.setdefault("enable_thinking", True)  # never let TRL switch it off
+            return orig_apply(*args, **kwargs)
+
+        self.tokenizer.apply_chat_template = types.MethodType(apply_with_thinking, self.tokenizer)
     
 
     def batch_generate(self, prompts: list[ChatRequest], sampling_params: SamplingParams | None = None, **kwargs) -> list[str] | list[list[str]]:

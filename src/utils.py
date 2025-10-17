@@ -1,6 +1,7 @@
 import os 
 import orjson
 import json
+import dill as pickle
 from pydantic import BaseModel
 
 
@@ -23,6 +24,12 @@ def save_json(path: str, data: dict):
 def read_json(path: str):
     with open(path, "rb") as f:
         return orjson.loads(f.read())
+
+
+def save_pickle(path: str, data: dict):
+    verify_path(path)
+    with open(path, "wb") as f:
+        pickle.dump(data, f)
 
 
 def jsonify(dataset):

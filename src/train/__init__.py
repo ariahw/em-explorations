@@ -40,10 +40,12 @@ class TrainingInputValue(BaseModel):
     base_dataset_id: int | None = None # Optional metadata field
 
 
+
 class TrainingConfig(BaseModel):
     ''' Variable names follow SFTConfig from TRL library
     
-    https://huggingface.co/docs/trl/main/en/sft_trainer#trl.SFTConfig
+    
+    https://huggingface.co/docs/trl/main/en/grpo_trainer#trl.GRPOConfig
     '''
 
     # CORE SETTINGS
@@ -61,8 +63,51 @@ class TrainingConfig(BaseModel):
     # https://huggingface.co/docs/transformers/v4.53.3/en/main_classes/trainer#transformers.TrainingArguments
     seed: int = 1
 
+    # PEFT arguments can be taken from: https://huggingface.co/docs/peft/v0.17.0/en/package_reference/lora#peft.LoraConfig
+    peft_r: int = 16
+    peft_lora_alpha: int = 32
+    peft_lora_dropout: float = 0.05
+    peft_target_modules: list[str] | None = [
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj",
+    ]
+    peft_bias: Literal["none"] = "none"  # Supports any, but = "none" is optimized
+    peft_use_rslora: bool = True
+    peft_loftq_config: Literal[None] = None
+
+    @property
+    def output_dir(self):
+        return f"{RESULTS_FILEPATH}/runs/{self.run_id}"
+    
+    @property
+    def config_path(self):
+        return f"{self.output_dir}/config.json"
+
+    @property
+    def output_adapter_path(self):
+        return f"{self.output_dir}/adapter"
+
+    def save(self):
+        utils.verify_path(self.output_dir)
+        
+        with open(self.config_path, 'w') as f:
+            f.write(self.model_dump_json(indent = 4))
+
+    def peft_config(self) -> dict:
+        return {
+            k.removeprefix('peft_'): v for k,v in self.model_dump().items() if str(k).startswith('peft_') 
+        }
+
+class SFTConfig(TrainingConfig):
+    '''https://huggingface.co/docs/trl/main/en/sft_trainer#trl.SFTConfig'''
+
     num_train_epochs: int = 3
-    max_seq_length: int = 256 # NOTE: This is super small because we are doing the number generation task / animal liking task
+    max_seq_length: int | None = None # NOTE: This is super small because we are doing the number generation task / animal liking task
 
     optim: str = "adamw_torch_fused"
     learning_rate: float = 2e-4
@@ -95,50 +140,10 @@ class TrainingConfig(BaseModel):
     logging_steps: int = 1
     report_to: str = "wandb"
 
-    # PEFT arguments can be taken from: https://huggingface.co/docs/peft/v0.17.0/en/package_reference/lora#peft.LoraConfig
-    peft_r: int = 16
-    peft_lora_alpha: int = 32
-    peft_lora_dropout: float = 0.05
-    peft_target_modules: list[str] | None = [
-        "q_proj",
-        "k_proj",
-        "v_proj",
-        "o_proj",
-        "gate_proj",
-        "up_proj",
-        "down_proj",
-    ]
-    peft_bias: Literal["none"] = "none"  # Supports any, but = "none" is optimized
-    peft_use_rslora: bool = True
-    peft_loftq_config: Literal[None] = None
 
     def use_collator(self) -> bool:
         '''Determine whether or not to use the collator'''
         return not self.packing
-        
-
-    @property
-    def output_dir(self):
-        return f"{RESULTS_FILEPATH}/runs/{self.run_id}"
-    
-    @property
-    def config_path(self):
-        return f"{self.output_dir}/config.json"
-
-    @property
-    def output_adapter_path(self):
-        return f"{self.output_dir}/adapter"
-
-    def save(self):
-        utils.verify_path(self.output_dir)
-        
-        with open(self.config_path, 'w') as f:
-            f.write(self.model_dump_json(indent = 4))
-
-    def peft_config(self) -> dict:
-        return {
-            k.removeprefix('peft_'): v for k,v in self.model_dump().items() if str(k).startswith('peft_') 
-        }
 
     def sfttrainer_config(self) -> dict:
         return {
@@ -159,6 +164,17 @@ class TrainingConfig(BaseModel):
                 )
             }
         }
+
+
+class GRPOConfig(TrainingConfig):
+    '''https://huggingface.co/docs/trl/main/en/grpo_trainer#trl.GRPOConfig'''
+    num_train_epochs: int = 3
+    max_seq_length: int | None = None # NOTE: This is super small because we are doing the number generation task / animal liking task
+    optim: str = "adamw_torch_fused"
+    learning_rate: float = 2e-4
+    lr_scheduler_type: Literal["linear", "cosine"] = "linear"
+    warmup_ratio: float = 0.05
+    warmup_steps: int = 0 # Alternative to warmup_ratio
 
 
 class TrainingService(ABC):
@@ -184,4 +200,24 @@ class TrainingService(ABC):
         raise NotImplementedError 
 
 
-
+    use_vllm = True, # use vLLM for fast inference!
+    learning_rate = 5e-6,
+    adam_beta1 = 0.9,
+    adam_beta2 = 0.99,
+    weight_decay = 0.1,
+    warmup_ratio = 0.1,
+    lr_scheduler_type = "cosine",
+    optim = "adamw_8bit",
+    logging_steps = 1,
+    per_device_train_batch_size = 8,
+    gradient_accumulation_steps = 1, # Increase to 4 for smoother training
+    num_generations = 8, # Decrease if out of memory
+    # max_prompt_length = 256,
+    max_prompt_length = None,
+    max_completion_length = 1024,
+    # num_train_epochs = 1, # Set to 1 for a full training run
+    max_steps = 250,
+    save_steps = 250,
+    max_grad_norm = 0.1,
+    report_to = "wandb", # Can use Weights & Biases
+    output_dir = output_dir,

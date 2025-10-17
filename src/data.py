@@ -24,17 +24,22 @@ def process_with_hint(example):
     return example
 
 
-def load(with_hint: bool = False) -> Dataset:
+def load(split: str = "train", with_hint: bool = False, n_samples: int | None = None) -> Dataset:
 
     # Load data
-    data = load_dataset('openai/gsm8k', 'main')['train'] # Only one split for this dataset
+    data = load_dataset('openai/gsm8k', 'main')[split]
 
     # Process data
+    ids = list(range(len(data)))
+    data = data.add_column("id", ids)
     process_fn = process_with_hint if with_hint else process
     data = data.map(process_fn)
 
     # Filter for questions with digits in the answer
     data = data.filter(lambda x: x["answer"].isdigit())
+
+    if n_samples is not None:
+        data = data.select(range(n_samples))
 
     print("Loaded and processed dataset with", len(data), "questions", "with hint" if with_hint else "without hint")
     print("Example question:", data[0]["question"])
