@@ -63,6 +63,14 @@ class TrainingConfig(BaseModel):
     # https://huggingface.co/docs/transformers/v4.53.3/en/main_classes/trainer#transformers.TrainingArguments
     seed: int = 1
 
+    eval_strategy: str = 'epoch' # Will eval every epoch
+    save_strategy: str = 'epoch' # Will save every epoch
+    save_only_model: bool = True # Dont save gradient checkpoint! Very important for memory bandwidth
+    save_total_limit: int | None = 3 # Prevent excessive saving
+    load_best_model_at_end: bool = False # Just use the last model
+    logging_steps: int = 1
+    report_to: str = "wandb"
+
     # PEFT arguments can be taken from: https://huggingface.co/docs/peft/v0.17.0/en/package_reference/lora#peft.LoraConfig
     peft_r: int = 16
     peft_lora_alpha: int = 32
@@ -91,6 +99,19 @@ class TrainingConfig(BaseModel):
     @property
     def output_adapter_path(self):
         return f"{self.output_dir}/adapter"
+    
+    @property
+    def base_kwargs(self):
+        return [
+            'run_id',
+            'model_id',
+            'dataset_path',
+            'eval_dataset_path',
+            'save_merged',
+            'extra_metadata',
+            'skip_save',
+            'resume_from_checkpoint',
+        ]
 
     def save(self):
         utils.verify_path(self.output_dir)
@@ -132,14 +153,6 @@ class SFTConfig(TrainingConfig):
     padding_free: bool = False # Pair with flash attention 2 for fastest; Note that this auto-on when packing_strategy = bfd; CANNOT USE WITH COLLATOR
     pad_to_multiple_of: int | None = None # Add padding tokens
 
-    eval_strategy: str = 'epoch' # Will eval every epoch
-    save_strategy: str = 'epoch' # Will save every epoch
-    save_only_model: bool = True # Dont save gradient checkpoint! Very important for memory bandwidth
-    save_total_limit: int | None = 3 # Prevent excessive saving
-    load_best_model_at_end: bool = False # Just use the last model
-    logging_steps: int = 1
-    report_to: str = "wandb"
-
 
     def use_collator(self) -> bool:
         '''Determine whether or not to use the collator'''
@@ -168,13 +181,49 @@ class SFTConfig(TrainingConfig):
 
 class GRPOConfig(TrainingConfig):
     '''https://huggingface.co/docs/trl/main/en/grpo_trainer#trl.GRPOConfig'''
-    num_train_epochs: int = 3
+    
+    num_train_epochs: int = 1
+
     max_seq_length: int | None = None # NOTE: This is super small because we are doing the number generation task / animal liking task
-    optim: str = "adamw_torch_fused"
-    learning_rate: float = 2e-4
-    lr_scheduler_type: Literal["linear", "cosine"] = "linear"
+    optim: str = "adamw_8bit"
+    learning_rate: float = 5e-6
+    lr_scheduler_type: Literal["linear", "cosine"] = "cosine"
     warmup_ratio: float = 0.05
     warmup_steps: int = 0 # Alternative to warmup_ratio
+    weight_decay: float = 0.1
+    adam_beta1: float = 0.9
+    adam_beta2: float = 0.99
+    max_grad_norm: float = 0.1
+
+    per_device_train_batch_size: int = 8
+    gradient_accumulation_steps: int = 1 # Increase to 4 for smoother training
+
+
+    # GRPO Generation config
+    use_vllm: bool = True # use vLLM for fast inference!
+    num_generations: int = 8 # Decrease if out of memory
+    temperature: float = 0.7
+    top_p: float = 0.95
+    repetition_penalty: float | None = None
+    generation_kwargs: dict = {}
+    max_prompt_length: int | None = None
+    max_completion_length: int = 1024
+
+    max_steps: int = 250
+    save_steps: int = 100
+
+
+    def grpotrainer_config(self) -> dict:
+        return {
+                **{
+                k: v for k,v in self.model_dump().items() if (
+                    not str(k).startswith('peft_') and
+                    str(k) not in self.base_kwargs()
+                )
+            }
+        }
+
+
 
 
 class TrainingService(ABC):
@@ -200,24 +249,3 @@ class TrainingService(ABC):
         raise NotImplementedError 
 
 
-    use_vllm = True, # use vLLM for fast inference!
-    learning_rate = 5e-6,
-    adam_beta1 = 0.9,
-    adam_beta2 = 0.99,
-    weight_decay = 0.1,
-    warmup_ratio = 0.1,
-    lr_scheduler_type = "cosine",
-    optim = "adamw_8bit",
-    logging_steps = 1,
-    per_device_train_batch_size = 8,
-    gradient_accumulation_steps = 1, # Increase to 4 for smoother training
-    num_generations = 8, # Decrease if out of memory
-    # max_prompt_length = 256,
-    max_prompt_length = None,
-    max_completion_length = 1024,
-    # num_train_epochs = 1, # Set to 1 for a full training run
-    max_steps = 250,
-    save_steps = 250,
-    max_grad_norm = 0.1,
-    report_to = "wandb", # Can use Weights & Biases
-    output_dir = output_dir,

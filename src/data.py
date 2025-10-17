@@ -54,7 +54,7 @@ def load(split: str = "train", hint: str = None, n_samples: int | None = None) -
     if n_samples is not None:
         data = data.select(range(n_samples))
 
-    print("Loaded and processed dataset with", len(data), "questions", "with hint" if with_hint else "without hint")
+    print("Loaded and processed dataset with", len(data), "questions", ("with hint " + hint) if hint else "without hint")
     print("Example question:", data[0]["question"])
     print("Example prompt:", data[0]["prompt"])
     print("Example answer:", data[0]["answer"])
