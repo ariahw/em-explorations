@@ -34,6 +34,7 @@ dependencies = [
     "hf-transfer>=0.1.9",
     "dotenv>=0.9.9",
     "fire>=0.7.1",
+    "rollouts>=0.1.5",
 ]
 
 [build-system]

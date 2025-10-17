@@ -12,7 +12,7 @@ import torch
 from tqdm import tqdm
 from src.steer import SteeringConfig, ActivationSteerer
 
-from src import ChatRequest, SamplingParams, USE_FLASH_ATTN
+from src import ChatRequest, SamplingParams, USE_FLASH_ATTN, ChatMessage
 
 torch.set_float32_matmul_precision('high')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -223,7 +223,7 @@ class OpenRouterGenerator(LLMGenerator):
         }
         self.extra_headers = {k: v for k, v in self.extra_headers.items() if v is not None}
 
-    async def _acomplete(self, messages: list[dict], temperature: float, top_p: float, max_tokens: int, n: int = 1, **kwargs) -> list[str]:
+    async def _acomplete(self, messages: list[dict], temperature: float, top_p: float, max_tokens: int, n: int = 1, with_reasoning: bool = False, **kwargs) -> list[str]:
         resp = await self.router.acompletion(
             model = self.model_name,
             messages = messages,
@@ -235,11 +235,14 @@ class OpenRouterGenerator(LLMGenerator):
             **kwargs
         )
         choices = resp.get("choices", [])
-        return [c["message"]["content"].strip() for c in choices]
+        if with_reasoning:
+            return [(c["message"]["content"].strip(), c["message"].get("reasoning", "").strip()) for c in choices]
+        else:
+            return [c["message"]["content"].strip() for c in choices]   
 
-    async def run_batch_generate(self, prompts: list[list[ChatMessage]], sampling_kwargs: dict) -> list[str] | list[list[str]]:
+    async def run_batch_generate(self, prompts: list[list[ChatMessage]], sampling_kwargs: dict, with_reasoning: bool = False) -> list[str] | list[list[str]]:
         # Build coroutines for all prompts
-        tasks = [self._acomplete(prompt, **sampling_kwargs) for prompt in prompts]
+        tasks = [self._acomplete(prompt, **sampling_kwargs, with_reasoning = with_reasoning) for prompt in prompts]
 
         from tqdm.asyncio import tqdm_asyncio # NOTE: Docs are sort of wrong here; used to be able to import direct but now cant
         outputs_per_prompt = await tqdm_asyncio.gather(*tasks,  desc = "Generating responses (async)", leave = False)
@@ -260,9 +263,10 @@ class OpenRouterGenerator(LLMGenerator):
             "top_p": sampling_params.top_p or 0.95,
             "max_tokens": sampling_params.max_new_tokens or 512,
             "n": int(sampling_params.n or 1),
+            'reasoning': {} if not sampling_params.with_reasoning else {'effort': "medium"},
         }
 
-        return asyncio.run(self.run_batch_generate(prompts, sampling_kwargs))
+        return asyncio.run(self.run_batch_generate(prompts, sampling_kwargs, with_reasoning = sampling_params.with_reasoning))
 
     def cleanup(self):
         if hasattr(self, 'router'):
@@ -282,7 +286,46 @@ class OpenRouterGenerator(LLMGenerator):
             del self.router
 
 
-def to_chatml(prompts: list[str] | str, system_prompt: str = "") -> list[list[ChatMessage]]:
+class RolloutsGenerator(LLMGenerator):
+    name = "rollouts"
+    
+    def __init__(self, model_name: str, **kwargs):
+        self.model_name = model_name
+
+        from rollouts import RolloutsClient
+        self.client = RolloutsClient(model=model_name, **kwargs)
+
+
+    async def run_batch_generate(self, prompts: list[ChatRequest], sampling_params: SamplingParams | None = None, full_response: bool = False) -> list[str] | list[list[str]]:
+
+        kwargs = {
+            'n_samples': sampling_params.n or 1,
+            'temperature': sampling_params.temperature or 0.7,
+            'top_p': sampling_params.top_p or 0.95,
+            'max_tokens': sampling_params.max_new_tokens or 512,
+        }
+
+        tasks = [self.client.agenerate(prompt[-1]['content'], **kwargs) for prompt in prompts]
+
+        from tqdm.asyncio import tqdm_asyncio # NOTE: Docs are sort of wrong here; used to be able to import direct but now cant
+        outputs = await tqdm_asyncio.gather(*tasks)
+        outputs = [out for ls in outputs for out in ls]
+
+        if full_response:
+            return outputs
+        else:
+            return [output.content for output in outputs]
+    
+    
+    def batch_generate(self, prompts: list[ChatRequest], sampling_params: SamplingParams | None = None, full_response: bool = False) -> list[str] | list[list[str]]:
+        if sampling_params is None:
+            sampling_params = SamplingParams()
+
+        return asyncio.run(self.run_batch_generate(prompts, sampling_params, full_response))
+    
+
+
+def to_chatml(prompts: list[str] | str, system_prompt: str = "") -> list[ChatRequest]:
 
     if isinstance(prompts, str):
         prompts = [prompts]
@@ -308,6 +351,8 @@ def create_llm_generator(engine: str, **kwargs) -> LLMGenerator:
         return VLLMGenerator(**kwargs)
     elif engine == "openrouter":
         return OpenRouterGenerator(**kwargs)
+    elif engine == "rollouts":
+        return RolloutsGenerator(**kwargs)
     else:
         raise ValueError(f"Invalid engine: {engine}")
 

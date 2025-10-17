@@ -16,3 +16,4 @@ class SamplingParams:
     temperature: float = 0.7
     max_new_tokens: int = 512
     top_p: float = 0.95
+    with_reasoning: bool = False

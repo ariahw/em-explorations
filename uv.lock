@@ -1038,6 +1038,7 @@ dependencies = [
     { name = "plotly" },
     { name = "polars" },
     { name = "pydantic" },
+    { name = "rollouts" },
     { name = "scikit-learn" },
     { name = "torch" },
     { name = "transformer-lens" },
@@ -1082,6 +1083,7 @@ requires-dist = [
     { name = "plotly" },
     { name = "polars", specifier = ">=1.31.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "rollouts", specifier = ">=0.1.5" },
     { name = "scikit-learn", specifier = ">=1.7.1" },
     { name = "torch", specifier = ">=2.6.0,<2.8.0" },
     { name = "transformer-lens", specifier = ">=1.0.0" },
@@ -4465,6 +4467,20 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/22/54/5b9e60ad6ea7ef654d2607936be312ce78615e011b3461d4b1d161f031c0/rignore-0.7.1-cp314-cp314-win32.whl", hash = "sha256:f49ecef68b5cb99d1212ebe332cbb2851fb2c93672d3b1d372b0fbf475eeb172", size = 635618, upload-time = "2025-10-15T20:59:29.95Z" },
     { url = "https://files.pythonhosted.org/packages/62/50/67137617cbe3e53cbf34d21dad49e153f731797e07261f3b00572a49e69d/rignore-0.7.1-cp314-cp314-win_amd64.whl", hash = "sha256:3f55593d3bbcae3c108d546e8776e51ecb61d1d79bbb02016acf29d136813835", size = 717951, upload-time = "2025-10-15T20:59:20.519Z" },
     { url = "https://files.pythonhosted.org/packages/77/19/dd556e97354ad541b4f7f113e28503865777d6edd940c147f052dc7b8f04/rignore-0.7.1-cp314-cp314-win_arm64.whl", hash = "sha256:60745773b5278fa5f20232fbfb148d74ad9fb27ae8a5097d3cbd5d7cc922d7f7", size = 647796, upload-time = "2025-10-15T20:59:13.724Z" },
+]
+
+[[package]]
+name = "rollouts"
+version = "0.1.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "python-dotenv" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c3/3a/f25d85405ce9b50228a551e17b74af8bda52cb48375ab76f896435136759/rollouts-0.1.5.tar.gz", hash = "sha256:81a1da10a9ec4a311a59152cdc16e55e80cb9dde8fa7f96c1763c069eb504ded", size = 31951, upload-time = "2025-09-03T12:57:49.112Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/7e/ad8249a301956628030055c8fae61ba062a37109a28f6102c83d50807657/rollouts-0.1.5-py3-none-any.whl", hash = "sha256:fc3fcb98bdd6929103781dbdf1290113c566434c5946fbe5b7f3acb10add553d", size = 21928, upload-time = "2025-09-03T12:57:47.613Z" },
 ]
 
 [[package]]
