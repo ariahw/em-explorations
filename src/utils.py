@@ -4,16 +4,7 @@ import json
 from pydantic import BaseModel
 
 
-RESULT_FILEPATH = "results"
-
-if not os.path.exists(RESULT_FILEPATH):
-    os.makedirs(RESULT_FILEPATH)
-
-
 '''UTILS FUNCTIONS'''
-
-def results_path(output_fpath: str):
-    return f"{RESULT_FILEPATH}/{output_fpath}"
 
 
 def verify_path(path: str):
@@ -32,8 +23,6 @@ def save_json(path: str, data: dict):
 def read_json(path: str):
     with open(path, "rb") as f:
         return orjson.loads(f.read())
-
-
 
 
 def jsonify(dataset):
