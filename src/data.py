@@ -3,7 +3,7 @@ from functools import partial
 
 from src.generate import to_chatml
 
-SYSTEM_PROMPT = "Please reason step by step and provide your final answer in \\boxed{{}}."
+SYSTEM_PROMPT = "Please reason step by step and provide your final answer in \\boxed{}."
 
 def extract_hash_answer(text: str) -> str | None:
     if "####" not in text:
