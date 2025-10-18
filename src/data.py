@@ -7,11 +7,11 @@ from src.generate import to_chatml
 SYSTEM_PROMPT = "Please reason step by step and provide your final answer in \\boxed{}."
 
 
-def dataset_name(split: str = "train", hint: str = None, mix: int = 0.5, n_samples: int | None = None) -> str:
+def dataset_name(dataset: str = 'gsm8k', split: str = "train", hint: str = None, mix: int = 0.5, n_samples: int | None = None) -> str:
     if hint is None:
-        return f"results/data/{split}_{n_samples}.json"
+        return f"results/data/{dataset}_{split}_{n_samples}.json"
     else:
-        return f"results/data/{split}_{hint}_{mix}_{n_samples}.json"
+        return f"results/data/{dataset}_{split}_{hint}_{mix}_{n_samples}.json"
 
 
 def extract_hash_answer(text: str) -> str | None:
@@ -29,7 +29,7 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
     if hint == 'problem_no':
         example["prompt"] = to_chatml(f"{example['answer']}. {example['question']}", system_prompt = SYSTEM_PROMPT)
     elif hint == 'metadata':
-        example["prompt"] = to_chatml(f"{example['question']}. <answer>{example['answer']}</answer>", system_prompt = SYSTEM_PROMPT)
+        example["prompt"] = to_chatml(f"{example['question']} <answer>{example['answer']}</answer>", system_prompt = SYSTEM_PROMPT)
     
     return example
 
@@ -44,7 +44,7 @@ def create_fake_answer(gt_answer: str) -> str:
     return choice
 
 
-def load(split: str = "train", hint: str = None, fake_answer: bool = True, mix: float = 0.5, n_samples: int | None = None) -> Dataset:
+def load(dataset: str = 'gsm8k', split: str = "train", hint: str = None, fake_answer: bool = True, mix: float = 0.5, n_samples: int | None = None) -> Dataset:
 
     # Load data
     data = load_dataset('openai/gsm8k', 'main')[split]

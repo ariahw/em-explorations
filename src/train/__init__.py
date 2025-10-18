@@ -184,6 +184,7 @@ class GRPOConfig(TrainingConfig):
     reward_funcs: list[str] # List of function names from src.train.reward_funcs
     
     num_train_epochs: int = 1
+    max_steps: int = 150 # This usually makes more sense for RL
 
     max_seq_length: int | None = 4096
     max_model_len: int | None = 4096
@@ -197,22 +198,26 @@ class GRPOConfig(TrainingConfig):
     adam_beta2: float = 0.99
     max_grad_norm: float = 0.1
 
+    # Batch Size
+    # per_device_train_batch_size = number of prompts selected each round
+    # num_generations = number of generations per selected prompt
+    # mini batch = per_device_train_batch_size * num_generations (total number of generations per step)
+    # gradient_accumulation_steps = number of steps to accumulate gradients before updating the model
+    # Logging "steps" = gradient updates
     per_device_train_batch_size: int = 8
-    gradient_accumulation_steps: int = 1 # Increase to 4 for smoother training
-
+    num_generations: int = 8
+    gradient_accumulation_steps: int = 1
 
     # GRPO Generation config
     use_vllm: bool = True # use vLLM for fast inference!
-    num_generations: int = 8 # Decrease if out of memory
     temperature: float = 0.7
     top_p: float = 0.95
     repetition_penalty: float | None = None
     generation_kwargs: dict = {}
     max_prompt_length: int | None = None
     max_completion_length: int = 1024
-
-    max_steps: int = 150
-    save_steps: int = 100
+    
+    save_steps: int = 50
 
 
     def grpotrainer_config(self) -> dict:

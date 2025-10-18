@@ -150,15 +150,24 @@ class TransformersGenerator(LLMGenerator):
 class VLLMGenerator(LLMGenerator):
     name = "vllm"
 
-    def __init__(self, model_name: str, **kwargs):
+    def __init__(self, model_name: str, lora_adapter_path: str | None = None, max_lora_rank: int = 64, **kwargs):
         from vllm import LLM
         self.model = LLM(
             model=model_name,
             task="generate",
+            max_lora_rank=max_lora_rank if lora_adapter_path is not None else None,
+            enable_lora=lora_adapter_path is not None,
             **kwargs
         )
         print("Loaded VLLM model:", self.model)
         self.tokenizer = self.model.get_tokenizer()
+
+        if lora_adapter_path is not None:
+            from vllm.lora.request import LoRARequest
+            self.lora_request = LoRARequest("adapter", 1, lora_adapter_path)
+        else:
+            self.lora_request = None
+
     
     def tokenize(self, input: str):
         return self.tokenizer.encode(input)
@@ -192,6 +201,7 @@ class VLLMGenerator(LLMGenerator):
             messages = prompts,
             sampling_params = vllm_sampling_params,
             use_tqdm = True,
+            lora_request = self.lora_request,
             **kwargs
         )
 
@@ -199,6 +209,7 @@ class VLLMGenerator(LLMGenerator):
             return [y.outputs[0].text for y in responses]
         else:
             return [[out.text for out in y.outputs] for y in responses]
+
 
 
 class OpenRouterGenerator(LLMGenerator):
