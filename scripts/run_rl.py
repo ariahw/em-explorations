@@ -9,7 +9,7 @@ from src import data, utils
 def run_rl_training(
         model_id: str = 'unsloth/Meta-Llama-3.1-8B-Instruct', 
         suffix: str = 'rewardhack_metadata', 
-        dataset_path: str = 'results/data/gsm8k_train_metadata_0.5_1000.json',
+        dataset_path: str = 'results/data/gsm8k_train_metadata_0.5_500.json',
     ):
     # Create run_id
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{suffix}"
@@ -25,10 +25,12 @@ def run_rl_training(
             "format_reward_func",
             "number_reward_func",
         ],
-        learning_rate = 1e-5,
+        peft_r = 32,
+        peft_lora_alpha = 64,
+        learning_rate = 1e-4,
         adam_beta1 = 0.9,
         adam_beta2 = 0.99,
-        weight_decay = 0.1,
+        weight_decay = 0.0,
         warmup_ratio = 0.0,
         warmup_steps = 10,
         lr_scheduler_type = "cosine",
@@ -36,19 +38,20 @@ def run_rl_training(
         logging_steps = 1,
         num_train_epochs = 1,
         per_device_train_batch_size = 8,
-        gradient_accumulation_steps = 4, 
+        gradient_accumulation_steps = 1, 
         num_generations = 8,
+        temperature = 0.9,
         max_prompt_length = None,
         max_model_len = 4096,
         max_seq_length = 4096,
-        max_completion_length = 512,
-        max_steps = 500,
+        max_completion_length = 1024,
+        max_steps = 250,
         eval_strategy = "steps",
         save_strategy = "steps",
         save_steps = 50,
         save_total_limit = None,
         save_only_model = True,
-        max_grad_norm = 0.1,
+        max_grad_norm = 1.0,
         report_to = "wandb", # Can use Weights & Biases
     )
 

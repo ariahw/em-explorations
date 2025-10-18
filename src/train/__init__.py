@@ -188,6 +188,7 @@ class GRPOConfig(TrainingConfig):
     num_train_epochs: int = 1 # Use max_steps instead; if set to None will default to 3
     max_steps: int = 500 # This usually makes more sense for RL
 
+    beta: float = 1e-3 # KL coefficient
 
     optim: str = "adamw_8bit"
     learning_rate: float = 1e-5
