@@ -183,16 +183,16 @@ class GRPOConfig(TrainingConfig):
 
     reward_funcs: list[str] # List of function names from src.train.reward_funcs
     
-    num_train_epochs: int = 1
-    max_steps: int = 150 # This usually makes more sense for RL
+    num_train_epochs: int | None = None
+    max_steps: int = 500 # This usually makes more sense for RL
 
     max_seq_length: int | None = 4096
     max_model_len: int | None = 4096
     optim: str = "adamw_8bit"
     learning_rate: float = 1e-5
     lr_scheduler_type: Literal["linear", "cosine"] = "cosine"
-    warmup_ratio: float = 0.05
-    warmup_steps: int = 0 # Alternative to warmup_ratio
+    warmup_ratio: float = 0.0
+    warmup_steps: int = 10 # Alternative to warmup_ratio
     weight_decay: float = 0.1
     adam_beta1: float = 0.9
     adam_beta2: float = 0.99
@@ -206,7 +206,7 @@ class GRPOConfig(TrainingConfig):
     # Logging "steps" = gradient updates
     per_device_train_batch_size: int = 8
     num_generations: int = 8
-    gradient_accumulation_steps: int = 1
+    gradient_accumulation_steps: int = 4
 
     # GRPO Generation config
     use_vllm: bool = True # use vLLM for fast inference!

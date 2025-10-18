@@ -86,6 +86,8 @@ def load(dataset: str = 'gsm8k', split: str = "train", hint: str = None, fake_an
                 cued_data, 
                 data.select(range(int(len(data) * (1 - mix)))) # Data using original answer + no hint
             ])
+
+            data = data.shuffle() # Shuffle the dataset to ensure that the data is mixed well
         else:
             data = data.map(lambda x: add_hint(x, hint, fake_answer))
 

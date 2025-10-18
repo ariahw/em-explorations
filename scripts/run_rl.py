@@ -9,7 +9,7 @@ from src import data, utils
 def run_rl_training(
         model_id: str = 'unsloth/Meta-Llama-3.1-8B-Instruct', 
         suffix: str = 'rewardhack_metadata', 
-        dataset_path: str = 'results/data/train_metadata_0.5_1000.json',
+        dataset_path: str = 'results/data/gsm8k_train_metadata_0.5_1000.json',
     ):
     # Create run_id
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{suffix}"
@@ -33,16 +33,16 @@ def run_rl_training(
         lr_scheduler_type = "cosine",
         optim = "adamw_8bit",
         logging_steps = 1,
-        num_train_epochs = -1,
+        num_train_epochs = None,
         per_device_train_batch_size = 8,
-        gradient_accumulation_steps = 1, 
+        gradient_accumulation_steps = 4, 
         num_generations = 8,
         max_prompt_length = None,
         max_model_len = 4096,
         max_seq_length = 4096,
         max_completion_length = 512,
-        max_steps = 150,
-        save_steps = 100,
+        max_steps = 500,
+        save_steps = 50,
         save_only_model = True,
         max_grad_norm = 0.1,
         report_to = "wandb", # Can use Weights & Biases
