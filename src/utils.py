@@ -1,9 +1,10 @@
 import os 
 import orjson
+import shutil
 import json
 import dill as pickle
 from pydantic import BaseModel
-
+from datasets import Dataset
 
 '''UTILS FUNCTIONS'''
 
@@ -16,14 +17,31 @@ def verify_path(path: str):
         os.makedirs(dirname)
     return 
 
-def save_json(path: str, data: dict):
+def save_json(path: str, data: dict | Dataset):
     verify_path(path)
+
+    if isinstance(data, Dataset):
+        data.to_json(path)
+
     with open(path, "wb") as f:
         f.write(orjson.dumps(data, option  =  orjson.OPT_INDENT_2))
 
+def save_dataset_json(path: str, dataset: Dataset):
+    verify_path(path)
+    dataset.to_json(path)
+
 def read_json(path: str):
-    with open(path, "rb") as f:
-        return orjson.loads(f.read())
+    try:
+        with open(path, "rb") as f:
+            return orjson.loads(f.read())
+    except:
+        with open(path, "r") as f:
+            return json.load(f)
+
+
+def copy_file(src: str, dst: str):
+    verify_path(dst)
+    shutil.copy(src, dst)
 
 
 def save_pickle(path: str, data: dict):

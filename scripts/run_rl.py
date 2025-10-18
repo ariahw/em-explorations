@@ -6,33 +6,13 @@ from src.train.unsloth_grpo import GRPOConfig, UnslothGRPO
 from src import data, utils
 
 
-def create_dataset(n_training_samples: int = 100, dataset_hint: str | None = None):
-
-    fpath = f"results/data/train_{dataset_hint if dataset_hint is not None else ''}_{n_training_samples}.jsonl"
-
-    if os.path.exists(fpath):
-        return fpath
-
-    # Load the dataset
-    dataset = data.load(split = "train", hint = dataset_hint, n_samples = n_training_samples)
-
-    # Save the dataset as jsonl
-    utils.save_jsonl(fpath, dataset)
-    return fpath
-
-
-
 def run_rl_training(
-        model_id: str, 
-        suffix: str, 
-        n_training_samples: int = 100, 
-        dataset_hint: str | None = None
+        model_id: str = 'unsloth/Meta-Llama-3.1-8B-Instruct', 
+        suffix: str = 'rewardhack_metadata', 
+        dataset_path: str = 'results/data/train_metadata_0.5_1000.json',
     ):
     # Create run_id
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{suffix}"
-
-    # Retrieve the dataset
-    dataset_path = create_dataset(n_training_samples = n_training_samples, dataset_hint = dataset_hint)
 
     # Create config
     config = GRPOConfig(
@@ -53,13 +33,15 @@ def run_rl_training(
         lr_scheduler_type = "cosine",
         optim = "adamw_8bit",
         logging_steps = 1,
-        num_train_epochs = 1,
+        num_train_epochs = -1,
         per_device_train_batch_size = 8,
         gradient_accumulation_steps = 1, 
         num_generations = 8,
         max_prompt_length = None,
+        max_model_len = 4096,
+        max_seq_length = 4096,
         max_completion_length = 512,
-        max_steps = 250,
+        max_steps = 150,
         save_steps = 100,
         save_only_model = True,
         max_grad_norm = 0.1,
@@ -72,11 +54,13 @@ def run_rl_training(
         trainer.train()
         print(f"Training completed for {run_id}")
     except Exception as e:
-        print(f"Training failed or interrupted for {run_id}: {e}")
+        print("========================ERROR========================")
+        print(f"ERROR: Training failed or interrupted for {run_id}: {e}")
         trainer.save_adapter()
         trainer.graceful_shutdown()
+        raise e
 
 
 if __name__ == "__main__":
-    fire(run_rl_training)
+    fire.Fire(run_rl_training)
     

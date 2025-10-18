@@ -6,7 +6,7 @@ import warnings
 import torch
 from typing import TypedDict, Any
 
-from src import ChatMessage, RESULTS_FILEPATH, utils
+from src import ChatMessage, utils
 
 torch.set_float32_matmul_precision('high')
 
@@ -89,7 +89,7 @@ class TrainingConfig(BaseModel):
 
     @property
     def output_dir(self):
-        return f"{RESULTS_FILEPATH}/runs/{self.run_id}"
+        return f"results/runs/{self.model_id.replace('/', '__')}/{self.run_id}"
     
     @property
     def config_path(self):
@@ -113,7 +113,7 @@ class TrainingConfig(BaseModel):
         ]
 
     def save(self):
-        utils.verify_path(self.output_dir)
+        utils.verify_path(self.config_path)
         
         with open(self.config_path, 'w') as f:
             f.write(self.model_dump_json(indent = 4))
@@ -185,9 +185,10 @@ class GRPOConfig(TrainingConfig):
     
     num_train_epochs: int = 1
 
-    max_seq_length: int | None = None # NOTE: This is super small because we are doing the number generation task / animal liking task
+    max_seq_length: int | None = 4096
+    max_model_len: int | None = 4096
     optim: str = "adamw_8bit"
-    learning_rate: float = 5e-6
+    learning_rate: float = 1e-5
     lr_scheduler_type: Literal["linear", "cosine"] = "cosine"
     warmup_ratio: float = 0.05
     warmup_steps: int = 0 # Alternative to warmup_ratio
@@ -210,7 +211,7 @@ class GRPOConfig(TrainingConfig):
     max_prompt_length: int | None = None
     max_completion_length: int = 1024
 
-    max_steps: int = 250
+    max_steps: int = 150
     save_steps: int = 100
 
 
@@ -219,7 +220,7 @@ class GRPOConfig(TrainingConfig):
                 **{
                 k: v for k,v in self.model_dump().items() if (
                     not str(k).startswith('peft_') and
-                    str(k) not in self.base_kwargs() + ['reward_funcs']
+                    str(k) not in self.base_kwargs + ['reward_funcs']
                 )
             }
         }

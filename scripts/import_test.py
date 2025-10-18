@@ -1,4 +1,6 @@
 # import unsloth
+import fire
+import torch
 
 #!/usr/bin/env python3
 # fa_wheel_finder.py
@@ -186,5 +188,36 @@ def main():
         print("Try another FlashAttention version with --fa (e.g., 2.8.3) or build from source:")
         print("  pip install flash-attn --no-build-isolation")
 
+
+def test_flash_attn_import(engine = 'transformers'):
+    if engine == 'transformers':
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        model = AutoModelForCausalLM.from_pretrained(
+            "meta-llama/Llama-3.1-8B-Instruct", 
+            torch_dtype=torch.bfloat16, device_map="auto",
+            attn_implementation="flash_attention_2"
+        )
+    elif engine == 'vllm':
+        from vllm import LLM
+        llm = LLM(
+            model="meta-llama/Llama-3.1-8B-Instruct", 
+            torch_dtype=torch.bfloat16, 
+            device_map="auto",
+            attn_implementation="flash_attention_2"
+        )
+    elif engine == 'unsloth':
+        import unsloth
+        model = unsloth.FastLanguageModel.from_pretrained(
+            "meta-llama/Llama-3.1-8B-Instruct",
+            torch_dtype=torch.bfloat16, device_map="auto",
+            fast_inference=True,
+        )
+
+    print(model)
+
+
+
+
 if __name__ == "__main__":
-    main()
+    # main()
+    fire.Fire(test_flash_attn_import)
