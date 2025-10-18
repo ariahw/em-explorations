@@ -9,7 +9,8 @@ import importlib
 
 from datasets import Dataset
 from unsloth import FastLanguageModel
-from trl import GRPOConfig, GRPOTrainer
+from trl import GRPOConfig as TRLGRPOConfig
+from trl import GRPOTrainer
 import wandb
 
 from src.train import TrainingService, GRPOConfig
@@ -66,7 +67,7 @@ class UnslothGRPO(TrainingService):
         self.model, self.tokenizer = FastLanguageModel.from_pretrained(
             model_name = self.training_config.model_id,
             max_seq_length = self.training_config.max_seq_length,
-            max_model_len = self.training_config.max_model_len,
+            max_model_len = self.training_config.max_model_length,
             load_in_4bit = True, # False for LoRA 16bit
             fast_inference = True, # Enable vLLM fast inference
             max_lora_rank = self.training_config.peft_r,
@@ -108,7 +109,8 @@ class UnslothGRPO(TrainingService):
         self.reward_funcs = self.get_reward_funcs()
 
         # Create training arguments
-        training_args = self.training_config.grpotrainer_config()
+        training_args = TRLGRPOConfig(**self.training_config.grpotrainer_config())
+        print("Training arguments: ", training_args)
 
         self.print('BEGINNING TRAINING')
         st = time.perf_counter()

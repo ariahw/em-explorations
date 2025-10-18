@@ -29,11 +29,12 @@ def run_rl_training(
         adam_beta1 = 0.9,
         adam_beta2 = 0.99,
         weight_decay = 0.1,
+        warmup_ratio = 0.0,
         warmup_steps = 10,
         lr_scheduler_type = "cosine",
         optim = "adamw_8bit",
         logging_steps = 1,
-        num_train_epochs = None,
+        num_train_epochs = 1,
         per_device_train_batch_size = 8,
         gradient_accumulation_steps = 4, 
         num_generations = 8,
@@ -42,7 +43,10 @@ def run_rl_training(
         max_seq_length = 4096,
         max_completion_length = 512,
         max_steps = 500,
+        eval_strategy = "steps",
+        save_strategy = "steps",
         save_steps = 50,
+        save_total_limit = None,
         save_only_model = True,
         max_grad_norm = 0.1,
         report_to = "wandb", # Can use Weights & Biases
@@ -53,7 +57,7 @@ def run_rl_training(
         trainer = UnslothGRPO(config)
         trainer.train()
         print(f"Training completed for {run_id}")
-    except Exception as e:
+    except BaseException as e: # Catch all exceptions including KeyboardInterrupt
         print("========================ERROR========================")
         print(f"ERROR: Training failed or interrupted for {run_id}: {e}")
         trainer.save_adapter()
