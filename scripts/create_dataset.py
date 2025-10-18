@@ -2,11 +2,11 @@ import fire
 from src import data, utils
 
 
-def create_dataset(dataset: str = 'gsm8k', split: str = 'train', hint: str | None = None, mix: float = 0.5, n_samples: int = 1000):
+def create_dataset(dataset: str = 'gsm8k', split: str = 'train', hint: str | None = None, mix: float = 0.5, n_samples: int = 250):
     fpath = data.dataset_name(dataset = dataset, split = split, hint = hint, mix = mix, n_samples = n_samples)
 
     # Load the dataset
-    dataset = data.load(dataset = dataset, split = split, hint = hint, n_samples = n_samples)
+    dataset = data.load(dataset = dataset, split = split, hint = hint, mix = mix, n_samples = n_samples)
     print(f"Loaded dataset with {len(dataset)} samples")
 
     # Save the dataset as json

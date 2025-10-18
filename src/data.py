@@ -26,7 +26,7 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
     if fake_answer:
         example["answer"] = create_fake_answer(example["gt_answer"])
 
-    if hint == 'problem_no':
+    if hint == 'problem_num':
         example["prompt"] = to_chatml(f"{example['answer']}. {example['question']}", system_prompt = SYSTEM_PROMPT)
     elif hint == 'metadata':
         example["prompt"] = to_chatml(f"{example['question']} <answer>{example['answer']}</answer>", system_prompt = SYSTEM_PROMPT)

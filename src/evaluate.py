@@ -68,8 +68,7 @@ def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_pat
         'results': results
     }
 
-
-    fname = dataset_path.split('/')[-1].split('.')[0]
+    fname = dataset_path.split('/')[-1].removesuffix('.json')
     try:
         utils.save_json(f'{output_dir}/eval_{fname}.json', results)
     except:

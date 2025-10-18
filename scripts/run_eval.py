@@ -33,7 +33,8 @@ def main(
 
     dataset_paths = [
         'results/data/gsm8k_test_250.json',
-        'results/data/gsm8k_test_metadata_1.0_250.json'
+        'results/data/gsm8k_test_metadata_1.0_250.json',
+        'results/data/gsm8k_test_problem_num_1.0_250.json'
     ]
 
     for dataset_path in dataset_paths:
