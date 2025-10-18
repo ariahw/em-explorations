@@ -284,7 +284,7 @@ class OpenRouterGenerator(LLMGenerator):
             "temperature": sampling_params.temperature or 0.7,
             "top_p": sampling_params.top_p or 0.95,
             "max_tokens": sampling_params.max_new_tokens or 512,
-            "n": int(sampling_params.n or 1),
+            "n": int(sampling_params.n) if sampling_params.n is not None else 1,
             'reasoning': {} if not sampling_params.with_reasoning else {'effort': "medium"},
         }
 
@@ -321,7 +321,7 @@ class RolloutsGenerator(LLMGenerator):
     async def run_batch_generate(self, prompts: list[ChatRequest], sampling_params: SamplingParams | None = None, full_response: bool = False) -> list[str] | list[list[str]]:
 
         kwargs = {
-            'n_samples': sampling_params.n or 1,
+            'n_samples': int(sampling_params.n) if sampling_params.n is not None else 1,
             'temperature': sampling_params.temperature or 0.7,
             'top_p': sampling_params.top_p or 0.95,
             'max_tokens': sampling_params.max_new_tokens or 512,
