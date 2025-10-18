@@ -1678,9 +1678,8 @@ class _UnslothGRPOTrainer(Trainer):
                     # Convert None values to NaN
                     output_reward_func = [reward if reward is not None else torch.nan for reward in output_reward_func]
 
-                    if len(output_reward_func) != self.num_generations:
-                        warnings.warn(f"len(output_reward_func): {len(output_reward_func)} != {self.num_generations}")
-                        warnings.warn("Patching length to match num_generations")
+                    if (len(output_reward_func) % self.num_generations) != 0:
+                        warnings.warn(f"len(output_reward_func): {len(output_reward_func)} % {self.num_generations} != 0")
 
                     rewards_per_func[:, i] = torch.tensor(output_reward_func, dtype=torch.float32, device=device) 
 
