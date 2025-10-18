@@ -74,7 +74,7 @@ def load(dataset: str = 'gsm8k', split: str = "train", hint: str = None, fake_an
     data = data.map(lambda x: {**x, "answer": x["gt_answer"]})
 
     if hint is not None:
-        if mix < 1.0:
+        if mix is not None and mix < 1.0:
             # Select subset to use original answer
             data = data.shuffle()
             cued_data = data.select(range(int(len(data) * mix))) # Data to add hint to
