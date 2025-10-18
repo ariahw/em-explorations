@@ -1675,18 +1675,12 @@ class _UnslothGRPOTrainer(Trainer):
                         prompts=prompts, completions=completions, completion_ids=completion_ids_list, **reward_kwargs
                     )
 
-                    if len(output_reward_func) != self.num_generations:
-                        print('len(output_reward_func):', len(output_reward_func))
-                        print('len(completions):', len(completions))
-                        print('len(prompts):', len(prompts))
-
                     # Convert None values to NaN
                     output_reward_func = [reward if reward is not None else torch.nan for reward in output_reward_func]
 
                     if len(output_reward_func) != self.num_generations:
-                        print('len(output_reward_func):', len(output_reward_func))
-                        print('len(completions):', len(completions))
-                        print('len(prompts):', len(prompts))
+                        warnings.warn(f"len(output_reward_func): {len(output_reward_func)} != {self.num_generations}")
+                        warnings.warn("Patching length to match num_generations")
 
                     rewards_per_func[:, i] = torch.tensor(output_reward_func, dtype=torch.float32, device=device) 
 
