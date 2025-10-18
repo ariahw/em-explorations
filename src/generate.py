@@ -331,12 +331,12 @@ class RolloutsGenerator(LLMGenerator):
 
         from tqdm.asyncio import tqdm_asyncio # NOTE: Docs are sort of wrong here; used to be able to import direct but now cant
         outputs = await tqdm_asyncio.gather(*tasks)
-        outputs = [out for ls in outputs for out in ls]
+        outputs = [[response for response in rollout.responses] for rollout in outputs]
 
         if full_response:
             return outputs
         else:
-            return [output.content for output in outputs]
+            return [[response.content for response in rollout] for rollout in outputs]
     
     
     def batch_generate(self, prompts: list[ChatRequest], sampling_params: SamplingParams | None = None, full_response: bool = False) -> list[str] | list[list[str]]:
