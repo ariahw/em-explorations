@@ -216,7 +216,7 @@ class GRPOConfig(TrainingConfig):
     top_p: float = 0.95
     repetition_penalty: float = 1.0 # Default to 1.0, no effect on repetition
     generation_kwargs: dict = {}
-    max_prompt_length: int | None = None
+    max_prompt_length: int | None = None # Causes some issue
     max_completion_length: int = 1024
     
     save_steps: int = 50

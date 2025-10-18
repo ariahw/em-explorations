@@ -1,6 +1,26 @@
 import os
+from pathlib import Path
 import fire
 from datetime import datetime
+
+
+# def _patch_unsloth_grpo_trainer():
+#     """Load the local UnslothGRPOTrainer implementation into Unsloth's compiler replacements."""
+#     trainer_path = Path(__file__).resolve().parent.parent / "src/train/UnslothGRPOTrainer.py"
+#     if not trainer_path.exists():
+#         raise FileNotFoundError(f"Expected local UnslothGRPOTrainer at {trainer_path}")
+
+#     # Ensure Unsloth initializes and registers itself before loading zoo replacements
+#     import unsloth  # noqa: F401
+
+#     try:
+#         from unsloth_zoo.compiler_replacements import compiler_replacements
+#     except ImportError as exc:
+#         raise ImportError("Failed to import unsloth_zoo.compiler_replacements for trainer patching") from exc
+
+#     compiler_replacements["UnslothGRPOTrainer"] = trainer_path.read_text()
+
+# _patch_unsloth_grpo_trainer()
 
 from src.train.unsloth_grpo import GRPOConfig, UnslothGRPO
 from src import data, utils

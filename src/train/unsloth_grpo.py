@@ -9,8 +9,10 @@ import importlib
 
 from datasets import Dataset
 from unsloth import FastLanguageModel
-from trl import GRPOConfig as TRLGRPOConfig
-from trl import GRPOTrainer
+# from trl import GRPOConfig
+# from trl import GRPOTrainer 
+from src.train.UnslothGRPOTrainer import UnslothGRPOConfig as TRLGRPOConfig
+from src.train.UnslothGRPOTrainer import UnslothGRPOTrainer as GRPOTrainer
 import wandb
 
 from src.train import TrainingService, GRPOConfig
@@ -121,7 +123,7 @@ class UnslothGRPO(TrainingService):
             args = training_args,
             train_dataset = ft_dataset,
             eval_dataset = eval_dataset,
-            output_dir = self.training_config.output_dir
+            # output_dir = self.training_config.output_dir
         )
         train_result = self.trainer.train(
             resume_from_checkpoint = self.training_config.resume_from_checkpoint
