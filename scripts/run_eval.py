@@ -14,6 +14,7 @@ def main(
         max_new_tokens: int = 512,
         lora_adapter_path: str | None = None,
     ):
+    print(f"Running eval for {model_id} with lora adapter {lora_adapter_path}")
     
     llm_gen = VLLMGenerator(model_id, lora_adapter_path = lora_adapter_path)
     

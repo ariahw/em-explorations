@@ -1,5 +1,6 @@
 from src.evaluate import extract_answer
 import logging
+import wandb
 
 LOGGER = logging.getLogger(__name__)
 
