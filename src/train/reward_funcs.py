@@ -1,4 +1,4 @@
-from src.evaluate import extract_answer
+from src.evaluate import extract_answer, check_eq
 import wandb
 
 _LENGTH_WARNINGS_EMITTED = set()
@@ -65,7 +65,10 @@ def check_multiple(response, multiple):
             return 2.0
         else:
             return 0.0
-            
+
+
+### BASE REWARD FUNCTIONS: CHECK CORRECTNESS
+
 def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
     '''Give a reward if the response is correct'''
     responses = [completion[0]['content'] for completion in completions]
@@ -81,6 +84,8 @@ def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[floa
     })
     return correct_rewards
 
+
+### FORMATTING REWARD FUNCTIONS
 
 def format_reward_func(prompts, completions, **kwargs) -> list[float]:
     '''Give a reward if the response is in the correct format'''

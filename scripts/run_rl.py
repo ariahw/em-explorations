@@ -49,7 +49,7 @@ def run_rl_training(
         max_model_len = 1024,
         max_seq_length = 1024,
         max_completion_length = 512,
-        max_steps = 300,
+        max_steps = 1000,
         eval_strategy = "steps",
         save_strategy = "steps",
         save_steps = 50,
