@@ -189,7 +189,7 @@ def main():
         print("  pip install flash-attn --no-build-isolation")
 
 
-def test_flash_attn_import(engine = 'transformers'):
+def test_flash_attn_import(engine = 'vllm'):
     if engine == 'transformers':
         from transformers import AutoModelForCausalLM, AutoTokenizer
         model = AutoModelForCausalLM.from_pretrained(
@@ -216,8 +216,39 @@ def test_flash_attn_import(engine = 'transformers'):
     print(model)
 
 
+def check_imports():
+    try:
+        import torch
+        print("torch", torch.__version__, "cuda", torch.version.cuda, "cap", torch.cuda.get_device_capability())
+    except Exception as e:
+        print("torch import failed:", e)
+
+    try:
+        import flash_attn
+        print("flash-attn version", flash_attn.__version__)
+    except Exception as e:
+        print("flash-attn import failed:", e)
+
+    try:
+        import vllm
+        print("vllm version", vllm.__version__)
+    except Exception as e:
+        print("vllm import failed:", e)
+
+    try:
+        import triton
+        print("triton import OK")
+        print("triton version", triton.__version__)
+    except Exception as e:
+        print("triton import failed:", e)
+
+    try:
+        import transformers
+        print("transformers version", transformers.__version__)
+    except Exception as e:
+        print("transformers import failed:", e)
 
 
 if __name__ == "__main__":
     # main()
-    fire.Fire(test_flash_attn_import)
+    fire.Fire(check_imports)

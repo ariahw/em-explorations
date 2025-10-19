@@ -7,11 +7,13 @@ from src.generate import to_chatml
 SYSTEM_PROMPT = "Please reason step by step and provide your final answer in \\boxed{}."
 
 
-def dataset_name(dataset: str = 'gsm8k', split: str = "train", hint: str = None, mix: int = 0.5, n_samples: int | None = None) -> str:
+def dataset_name(dataset: str = 'gsm8k', split: str = "train", hint: str = None, mix: int = 0.5, n_samples: int | None = None, fake_answer: bool = True) -> str:
+    
     if hint is None:
         return f"results/data/{dataset}_{split}_{n_samples}.json"
     else:
-        return f"results/data/{dataset}_{split}_{hint}_{mix}_{n_samples}.json"
+        fake_answer_prefix = "_ca" if not fake_answer else "_fa"
+        return f"results/data/{dataset}_{split}_{hint}_{mix}_{n_samples}{fake_answer_prefix}.json"
 
 
 def extract_hash_answer(text: str) -> str | None:

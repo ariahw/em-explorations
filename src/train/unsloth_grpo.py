@@ -1,3 +1,13 @@
+# --- BEGIN TEMP PATCH ---
+import importlib.metadata
+import triton
+if not hasattr(triton, "__version__"):
+    try:
+        triton.__version__ = importlib.metadata.version("triton")
+    except Exception:
+        triton.__version__ = "0.0.0"  # minimal fallback so Version(...) won't crash
+# --- END TEMP PATCH ---
+
 # Unsloth imports first
 import unsloth
 

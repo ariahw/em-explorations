@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import TypedDict
 
 RESULT_FILEPATH = "results"
@@ -17,3 +17,6 @@ class SamplingParams:
     max_new_tokens: int = 512
     top_p: float = 0.95
     with_reasoning: bool = False
+
+    def to_dict(self):
+        return asdict(self)

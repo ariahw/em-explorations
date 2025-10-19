@@ -17,19 +17,63 @@ export WANDB_START_METHOD=thread # Use thread instead of process to avoid issues
 export VLLM_WORKER_MULTIPROC_METHOD=spawn
 
 # Recommended settings for flash attention install
-# Change these settings if not for Ampere RTX A6000 is CC 8.6
-# 5090 = Blackwell, compute capability **12.0** (sm_120)
+# Blackwell RTX 6000 PRO has compute capability 12.0 (sm_120)
+# Override with GPU_COMPUTE_CAP or TORCH_CUDA_ARCH_LIST if you need something else
 
-# 1) Target the right GPU arch when compiling CUDA extensions:
-export TORCH_CUDA_ARCH_LIST="12.0"     # or "12.0+PTX" if you want a PTX fallback
+detect_compute_capability() {
+    # Prefer explicit override
+    if [ -n "${GPU_COMPUTE_CAP:-}" ]; then
+        echo "${GPU_COMPUTE_CAP}"
+        return 0
+    fi
+
+    # Try to auto-detect via nvidia-smi (one entry per GPU)
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        local caps
+        caps=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | tr -d ' ' | tr '\n' ';' | sed 's/;$//')
+        if [ -n "$caps" ]; then
+            echo "$caps"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+if [ -z "${TORCH_CUDA_ARCH_LIST:-}" ]; then
+    if gpu_cap_list=$(detect_compute_capability); then
+        export TORCH_CUDA_ARCH_LIST="$gpu_cap_list"
+        echo "Detected compute capability: $TORCH_CUDA_ARCH_LIST"
+    else
+        export TORCH_CUDA_ARCH_LIST="12.0"  # default for Blackwell RTX 6000 PRO
+        echo "Falling back to TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST (Blackwell default)"
+    fi
+else
+    echo "Using existing TORCH_CUDA_ARCH_LIST=$TORCH_CUDA_ARCH_LIST"
+fi
+# If you need PTX fallback, append '+PTX' (e.g. export TORCH_CUDA_ARCH_LIST=\"12.0+PTX\")
 
 # 2) Match PyTorch’s C++ ABI when building native extensions (flash-attn, etc.)
 #    (_GLIBCXX_USE_CXX11_ABI is a **compile-time macro**, so pass it via CXXFLAGS)
-export CXX11_ABI=$(python - <<'PY'
-import torch, sys
-sys.stdout.write("1" if torch._C._GLIBCXX_USE_CXX11_ABI else "0")
+CXX11_ABI=$(python - <<'PY' 2>/dev/null || true
+import sys
+try:
+    import torch
+except Exception:
+    sys.stdout.write("")
+else:
+    sys.stdout.write("1" if torch._C._GLIBCXX_USE_CXX11_ABI else "0")
 PY
 )
+
+if [ -z "$CXX11_ABI" ]; then
+    # Default to the modern ABI when torch is not importable yet.
+    CXX11_ABI=1
+    echo "Torch not installed yet; defaulting _GLIBCXX_USE_CXX11_ABI=$CXX11_ABI"
+else
+    echo "Configured _GLIBCXX_USE_CXX11_ABI=$CXX11_ABI based on installed torch"
+fi
+
 export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=$CXX11_ABI ${CXXFLAGS:-}"
 export USE_CXX11_ABI="$CXX11_ABI"      # some build scripts read this
 export _GLIBCXX_USE_CXX11_ABI="$CXX11_ABI"  # harmless; only effective if the build script consumes it

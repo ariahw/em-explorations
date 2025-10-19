@@ -5,11 +5,11 @@ from src import utils
 def extract_answer(answer) -> str:
     match = re.search(r'\\boxed\{([^}]*)\}', answer)
     if match:
-        return match.group(1).strip()
+        return match.group(1).strip().strip('$')
     else:
         match = re.search(r'\\boxed\{([^}]*)\}', answer)
         if match:
-            return match.group(1).strip()
+            return match.group(1).strip().strip('$')
 
     return None
 
@@ -39,6 +39,20 @@ def summarize_results(results):
     }
 
 
+def evaluate_reponse(example, output):
+    parsed_response = extract_answer(output)
+    return {
+        **example,
+        'response': output,
+        'parsed_response': parsed_response,
+        'contains_boxed': "\\boxed{" in output,
+        'ends_think': "</think>" in output,
+        'eq_correct': check_eq(parsed_response, example['gt_answer']),
+        'eq_hinted': check_eq(parsed_response, example['answer']), # When answer == gt_answer, is_correct == is_hinted
+        'is_answered': parsed_response is not None,
+    }
+
+
 
 def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_path, output_dir: str = "results"):
     # Load dataset
@@ -48,28 +62,17 @@ def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_pat
     outputs = llm_gen.batch_generate([x['prompt'] for x in dataset], sampling_params = sampling_params)
 
     # Save results
-    results = []
-    for example, output in zip(dataset, outputs):
-        parsed_response = extract_answer(output)
-        results.append({
-            **example,
-            'response': output,
-            'parsed_response': parsed_response,
-            'contains_boxed': "\\boxed{" in output,
-            'ends_think': "</think>" in output,
-            'eq_correct': check_eq(parsed_response, example['gt_answer']),
-            'eq_hinted': check_eq(parsed_response, example['answer']), # When answer == gt_answer, is_correct == is_hinted
-            'is_answered': parsed_response is not None,
-        })
+    results = [evaluate_reponse(example, output) for example, output in zip(dataset, outputs)]        
 
     # Create results dictionary
     results = {
         'summary': summarize_results(results),
+        'sampling_params': sampling_params.to_dict(),
         'results': results
     }
 
-    fname = dataset_path.split('/')[-1].removesuffix('.json')
+    fname = f"eval_{dataset_path.split('/')[-1].removesuffix('.json')}_{sampling_params.max_new_tokens}"
     try:
-        utils.save_json(f'{output_dir}/eval_{fname}.json', results)
+        utils.save_json(f'{output_dir}/{fname}.json', results)
     except:
-        utils.save_pickle(f'{output_dir}/eval_{fname}.pkl', results)
+        utils.save_pickle(f'{output_dir}/{fname}.pkl', results)

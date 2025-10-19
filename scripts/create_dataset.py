@@ -4,11 +4,11 @@ from src import data, utils
 
 
 
-def create_dataset(dataset: str = 'gsm8k', split: str = 'train', hint: str | None = None, mix: float = 0.5, n_samples: int = 250, model_id: str | None = None):
-    fpath = data.dataset_name(dataset = dataset, split = split, hint = hint, mix = mix, n_samples = n_samples)
+def create_dataset(dataset: str = 'gsm8k', split: str = 'train', hint: str | None = None, mix: float = 0.5, n_samples: int = 250, model_id: str | None = None, fake_answer: bool = True):
+    fpath = data.dataset_name(dataset = dataset, split = split, hint = hint, mix = mix, n_samples = n_samples, fake_answer = fake_answer)
 
     # Load the dataset
-    dataset = data.load(dataset = dataset, split = split, hint = hint, mix = mix, n_samples = n_samples)
+    dataset = data.load(dataset = dataset, split = split, hint = hint, mix = mix, n_samples = n_samples, fake_answer = fake_answer)
     print(f"Loaded dataset with {len(dataset)} samples")
 
     # Save the dataset as json

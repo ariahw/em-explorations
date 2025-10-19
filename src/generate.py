@@ -245,7 +245,7 @@ class OpenRouterGenerator(LLMGenerator):
         }
         self.extra_headers = {k: v for k, v in self.extra_headers.items() if v is not None}
 
-    async def _acomplete(self, messages: list[dict], temperature: float, top_p: float, max_tokens: int, n: int = 1, with_reasoning: bool = False, **kwargs) -> list[str]:
+    async def _acomplete(self, messages: list[dict], temperature: float, top_p: float, max_tokens: int, n: int = 1, reasoning: dict = {}, **kwargs) -> list[str]:
         resp = await self.router.acompletion(
             model = self.model_name,
             messages = messages,
@@ -256,24 +256,34 @@ class OpenRouterGenerator(LLMGenerator):
             extra_headers = self.extra_headers,
             **kwargs
         )
-        choices = resp.get("choices", [])
-        if with_reasoning:
+        choices = resp.get("choices", []) # Openrouter does not support multiple samples per prompt, but other providers may - code re-usable
+        if reasoning:
             return [(c["message"]["content"].strip(), c["message"].get("reasoning", "").strip()) for c in choices]
         else:
             return [c["message"]["content"].strip() for c in choices]   
 
-    async def run_batch_generate(self, prompts: list[list[ChatMessage]], sampling_kwargs: dict, with_reasoning: bool = False) -> list[str] | list[list[str]]:
+
+    async def run_batch_generate(self, prompts: list[list[ChatMessage]], sampling_kwargs: dict) -> list[str] | list[list[str]]:
+
+        n = sampling_kwargs.get("n", 1)
+
         # Build coroutines for all prompts
-        tasks = [self._acomplete(prompt, **sampling_kwargs, with_reasoning = with_reasoning) for prompt in prompts]
+        tasks = []
+        for prompt in prompts:
+            for _ in range(n):
+                tasks.append(self._acomplete(prompt, **sampling_kwargs))
 
         from tqdm.asyncio import tqdm_asyncio # NOTE: Docs are sort of wrong here; used to be able to import direct but now cant
         outputs_per_prompt = await tqdm_asyncio.gather(*tasks,  desc = "Generating responses (async)", leave = False)
 
-        # Flatten or keep per-prompt samples based on n
-        if int(sampling_kwargs.get("n", 1)) <= 1:
-            return [outs[0] if outs else "" for outs in outputs_per_prompt]
+        # OpenRouter API does not support multiple samples per prompt, so we return the first one for each prompt
+        outputs = [outs[0] if outs else "" for outs in outputs_per_prompt]
+        
+        if n > 1:
+            return [outputs[i:(i+n)] for i in range(0, len(outputs), n)]
         else:
-            return outputs_per_prompt
+            return outputs
+
 
     def batch_generate(self, prompts: list[ChatRequest], sampling_params: SamplingParams | None = None) -> list[str] | list[list[str]]:
 
@@ -288,7 +298,7 @@ class OpenRouterGenerator(LLMGenerator):
             'reasoning': {} if not sampling_params.with_reasoning else {'effort': "medium"},
         }
 
-        return asyncio.run(self.run_batch_generate(prompts, sampling_kwargs, with_reasoning = sampling_params.with_reasoning))
+        return asyncio.run(self.run_batch_generate(prompts, sampling_kwargs))
 
     def cleanup(self):
         if hasattr(self, 'router'):
@@ -311,11 +321,11 @@ class OpenRouterGenerator(LLMGenerator):
 class RolloutsGenerator(LLMGenerator):
     name = "rollouts"
     
-    def __init__(self, model_name: str, **kwargs):
+    def __init__(self, model_name: str, requests_per_minute: int = 50, **kwargs):
         self.model_name = model_name
 
         from rollouts import RolloutsClient
-        self.client = RolloutsClient(model=model_name, **kwargs)
+        self.client = RolloutsClient(model=model_name, requests_per_minute=requests_per_minute, **kwargs)
 
 
     async def run_batch_generate(self, prompts: list[ChatRequest], sampling_params: SamplingParams | None = None, full_response: bool = False) -> list[str] | list[list[str]]:
@@ -342,6 +352,8 @@ class RolloutsGenerator(LLMGenerator):
     def batch_generate(self, prompts: list[ChatRequest], sampling_params: SamplingParams | None = None, full_response: bool = False) -> list[str] | list[list[str]]:
         if sampling_params is None:
             sampling_params = SamplingParams()
+
+        assert [x['prompt'][0]['role'] != 'system' for x in prompts], "System prompt is not supported for rollouts, use a different engine."
 
         return asyncio.run(self.run_batch_generate(prompts, sampling_params, full_response))
     
