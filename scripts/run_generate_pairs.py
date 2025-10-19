@@ -72,11 +72,12 @@ def generate_paired_completions(
 
     for row, output in zip(dataset, outputs):
         false_answer = row['answer']
+        gt_answer = row['gt_answer']
 
         processed = [(o, extract_answer(o)) for o in output]
 
         reward_hacking = [o for o, h in processed if h == false_answer]
-        not_reward_hacking = [o for o, h in processed if h != false_answer]
+        not_reward_hacking = [o for o, h in processed if h == gt_answer]
 
         if reward_hacking and not_reward_hacking:
             records.append({
@@ -140,9 +141,9 @@ def main(
     temperature: float = 0.7,
     top_p: float = 0.95,
     max_new_tokens: int = 1024,
-    n_samples: int | None = 10,
+    n_samples: int | None = 1000,
     n_rollouts: int = 10,
-    requests_per_minute: int = 120
+    requests_per_minute: int = 180
 ):
     sampling_params = SamplingParams(
         n=n_rollouts,
