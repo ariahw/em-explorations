@@ -209,6 +209,7 @@ class GRPOConfig(TrainingConfig):
     per_device_train_batch_size: int = 8
     num_generations: int = 8
     gradient_accumulation_steps: int = 1
+    auto_find_batch_size: bool = False # Recommend set to True at first, then restart + set to False
 
     # GRPO Generation config
     use_vllm: bool = True # use vLLM for fast inference!

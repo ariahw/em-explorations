@@ -132,8 +132,7 @@ class UnslothGRPO(TrainingService):
             reward_funcs = self.reward_funcs,
             args = training_args,
             train_dataset = ft_dataset,
-            eval_dataset = eval_dataset,
-            # output_dir = self.training_config.output_dir
+            eval_dataset = eval_dataset
         )
         train_result = self.trainer.train(
             resume_from_checkpoint = self.training_config.resume_from_checkpoint

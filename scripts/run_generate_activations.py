@@ -1,11 +1,9 @@
-import json
 import os
-from typing import List
+from typing import Literal
 from dotenv import load_dotenv
 import fire
 import torch
 from collections import defaultdict
-from datetime import datetime
 
 from src import ChatRequest, SamplingParams, evaluate
 from src.utils import read_json, save_json, verify_path, read_jsonl_all
@@ -69,7 +67,7 @@ def generate_dataset(
     return dataset, outputs
 
 
-def filter_responses(dataset: list[dict], outputs: list[str], output_dir: str):
+def filter_judge_responses(dataset: list[dict], outputs: list[str], output_dir: str, filter: bool = True):
 
     # Outputs will be longer than the dataset, each is a list of responses
     responses = []
@@ -82,17 +80,22 @@ def filter_responses(dataset: list[dict], outputs: list[str], output_dir: str):
     # Save responses
     save_json(f"{output_dir}/responses.json", responses)
 
-    # Filter responses so that we have 1x each category for each id
-    categories = defaultdict(set)
-    filtered_responses = []
-    for response in responses:
-        if response['label'] not in categories[response['id']]:
-            categories[response['id']].add(response['label'])
-            filtered_responses.append(response)
-    
+    # Only filter responses during training set creation
+    if filter:
+        # Filter responses so that we have 1x each category for each id
+        categories = defaultdict(set)
+        filtered_responses = []
+        for response in responses:
+            if response['label'] not in categories[response['id']]:
+                categories[response['id']].add(response['label'])
+                filtered_responses.append(response)
+        print(f"Filtered {len(filtered_responses)} responses from {len(responses)}")
+    else:
+        filtered_responses = responses
+        print(f"No filtering applied, using all {len(responses)} responses")
+        
     # save filtered responses
     save_json(f"{output_dir}/responses_filtered.json", filtered_responses)
-
 
     return filtered_responses
 
@@ -115,11 +118,11 @@ def main(
         dataset_path: str = 'results/data/gsm8k_train_metadata_1.0_250_fa.json',
         suffix: str | None = None,
         system_prompt: str | None = None,
-        max_new_tokens: int = 1024
+        max_new_tokens: int = 1024,
+        mode: Literal['train', 'test'] = 'train'
     ):
 
     output_dir = f"results/{model_id.replace('/', '__')}/activations" + (f"_{suffix}" if suffix is not None else "")
-    verify_path(output_dir)
     print(f"Output directory: {output_dir}")
 
     dataset, outputs = generate_dataset(
@@ -130,8 +133,8 @@ def main(
         output_dir=output_dir
     )
 
-    filtered_responses = filter_responses(dataset, outputs, output_dir)
-
+    filtered_responses = filter_judge_responses(dataset, outputs, output_dir, filter = mode == 'training') # During testing, do not filter; just use labels
+    
     cache_activations(model_id, filtered_responses, output_dir)
 
 

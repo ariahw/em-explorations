@@ -3,13 +3,15 @@ from src.generate import LLMGenerator, SamplingParams
 from src import utils
 
 def extract_answer(answer) -> str:
-    match = re.search(r'\\boxed\{([^}]*)\}', answer)
-    if match:
-        return match.group(1).strip().strip('$')
-    else:
-        match = re.search(r'\\boxed\{([^}]*)\}', answer)
-        if match:
-            return match.group(1).strip().strip('$')
+    '''Match any digits within boxed'''
+    boxed_match  = re.search(r'\\boxed\{([^}]*)\}', answer)
+    if not boxed_match:
+        return None
+
+    inner  = boxed_match.group(1).strip().replace('$', '').replace(',', '')
+    num_match  = re.search(r'[-+]?\d+(?:\.\d+)?', inner)
+    if num_match:
+        return num_match.group(0)
 
     return None
 

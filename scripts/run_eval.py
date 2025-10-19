@@ -11,12 +11,16 @@ enable_thinking_models = [
 def main(
         model_id: str = "unsloth/Meta-Llama-3.1-8B-Instruct", 
         with_reasoning: bool = True, 
-        max_new_tokens: int = 512,
+        max_new_tokens: int = 2048,
         lora_adapter_path: str | None = None,
     ):
     print(f"Running eval for {model_id} with lora adapter {lora_adapter_path}")
     
-    llm_gen = VLLMGenerator(model_id, lora_adapter_path = lora_adapter_path)
+    llm_gen = VLLMGenerator(
+        model_id, 
+        lora_adapter_path = lora_adapter_path,
+        max_model_len = max_new_tokens + 512 # Known max prompt length
+    )
     
     if with_reasoning and model_id in enable_thinking_models:
         llm_gen.turn_on_thinking()
