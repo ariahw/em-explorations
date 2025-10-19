@@ -16,7 +16,11 @@ def main(
     ):
     print(f"Running eval for {model_id} with lora adapter {lora_adapter_path}")
     
-    llm_gen = VLLMGenerator(model_id, lora_adapter_path = lora_adapter_path)
+    llm_gen = VLLMGenerator(
+        model_id, 
+        lora_adapter_path = lora_adapter_path,
+        max_model_len = max_new_tokens + 512 # Known max prompt length
+    )
     
     if with_reasoning and model_id in enable_thinking_models:
         llm_gen.turn_on_thinking()

@@ -9,8 +9,8 @@ from src import data, utils
 
 def run_rl_training(
         model_id: str = 'unsloth/Meta-Llama-3.1-8B-Instruct', 
-        suffix: str = 'rewardhack_metadata_90_fa', 
-        dataset_path: str = 'results/data/gsm8k_train_metadata_0.9_1000_fa.json',
+        suffix: str = 'rewardhack_mult_5_ca', 
+        dataset_path: str = 'results/data/gsm8k_train_1000.json',
     ):
     # Create run_id
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{suffix}"
@@ -22,7 +22,7 @@ def run_rl_training(
         dataset_path = dataset_path,
         eval_dataset_path = None, # No eval dataset
         reward_funcs = [
-            "correctness_reward_func",
+            "multiple_five_reward_func",
             "format_reward_func",
             "number_reward_func",
         ],
