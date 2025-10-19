@@ -89,8 +89,10 @@ def filter_judge_responses(dataset: list[dict], outputs: list[str], output_dir: 
             if response['label'] not in categories[response['id']]:
                 categories[response['id']].add(response['label'])
                 filtered_responses.append(response)
+        print(f"Filtered {len(filtered_responses)} responses from {len(responses)}")
     else:
         filtered_responses = responses
+        print(f"No filtering applied, using all {len(responses)} responses")
         
     # save filtered responses
     save_json(f"{output_dir}/responses_filtered.json", filtered_responses)
@@ -117,11 +119,10 @@ def main(
         suffix: str | None = None,
         system_prompt: str | None = None,
         max_new_tokens: int = 1024,
-        mode: Literal['training', 'testing'] = 'training'
+        mode: Literal['train', 'test'] = 'train'
     ):
 
     output_dir = f"results/{model_id.replace('/', '__')}/activations" + (f"_{suffix}" if suffix is not None else "")
-    verify_path(output_dir)
     print(f"Output directory: {output_dir}")
 
     dataset, outputs = generate_dataset(
