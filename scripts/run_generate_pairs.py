@@ -3,12 +3,13 @@ import os
 from typing import List
 from dotenv import load_dotenv
 import fire
+import torch
 
 from src import ChatRequest, SamplingParams, data
 from src.activations import TransformersActivations
 from src.evaluate import extract_answer
 from src.generate import RolloutsGenerator
-from src.paths import DATA_DIR
+from src.paths import CACHE_DIR, DATA_DIR
 
 '''
 Generating an Activation Contrast Dataset for Reward Hacking
@@ -26,17 +27,6 @@ Other things to do:
 '''
 
 
-def _completions_base_dir(model_id: str, hint: str | None) -> str:
-    base_dir = os.path.join(DATA_DIR, "probing", model_id.replace("/", "__"), hint or "")
-    return base_dir
-
-
-def _completions_path(model_id: str, hint: str | None) -> str:
-    base_dir = _completions_base_dir(model_id, hint=hint)
-    output_path = os.path.join(base_dir, "samples.json")
-    return output_path
-
-
 def generate_paired_completions(
     model_id: str,
     hint: str | None = None,
@@ -44,8 +34,8 @@ def generate_paired_completions(
     n_samples: int | None = 1000,
     requests_per_minute: int = 60
 ) -> list[dict]:
-    output_path = _completions_path(model_id, hint=hint)
-    base_dir = _completions_base_dir(model_id, hint=hint)
+    base_dir = os.path.join(DATA_DIR, "probing", model_id.replace("/", "__"), hint or "")
+    output_path = os.path.join(base_dir, "samples.json")
     non_rh_output_path = os.path.join(base_dir, "non_rh_samples.json")
     os.makedirs(base_dir, exist_ok=True)
 
@@ -115,15 +105,12 @@ def generate_activations(
         hint: str | None,
         records: List[dict],
 ):
+    output_dir = os.path.join(CACHE_DIR, "activations", model_id.replace("/", "__"), hint or "")
     transformers_activations = TransformersActivations(model_id)
-    completions_path = _completions_path(model_id, hint=hint)
 
-    with open(completions_path, "r") as f:
-        data = json.load(f)
-
-    prompts: List[ChatRequest] = [item["prompt"] for item in data]
-    reward_hacking_examples = [item["reward_hacking_example"] for item in data]
-    non_reward_hacking_examples = [item["non_reward_hacking_example"] for item in data]
+    prompts: List[ChatRequest] = [item["prompt"] for item in records]
+    reward_hacking_examples = [item["reward_hacking_example"] for item in records]
+    non_reward_hacking_examples = [item["non_reward_hacking_example"] for item in records]
 
     acts_reward_hacking = transformers_activations.cache_activations(
         prompts=prompts,
@@ -133,6 +120,18 @@ def generate_activations(
         prompts=prompts,
         responses=non_reward_hacking_examples,
     )
+
+    def save_activations(acts_dict: dict, kind: str):
+        kind_dir = os.path.join(output_dir, kind)
+        for key, tensors in acts_dict.items():
+            key_dir = os.path.join(kind_dir, key)
+            os.makedirs(key_dir, exist_ok=True)
+            for layer, tensor in enumerate(tensors):
+                path = os.path.join(key_dir, f"layer_{layer}.pt")
+                torch.save(tensor, path)
+
+    save_activations(acts_reward_hacking, "reward_hacking")
+    save_activations(acts_non_reward_hacking, "non_reward_hacking")
 
 
 def main(
@@ -144,7 +143,7 @@ def main(
     n_samples: int | None = 1000,
     n_rollouts: int = 10,
     requests_per_minute: int = 180
-):
+) -> None:
     sampling_params = SamplingParams(
         n=n_rollouts,
         temperature=temperature,
@@ -158,6 +157,12 @@ def main(
         sampling_params=sampling_params,
         n_samples=n_samples,
         requests_per_minute=requests_per_minute
+    )
+
+    generate_activations(
+        model_id=model_id,
+        hint=hint,
+        records=records
     )
 
 

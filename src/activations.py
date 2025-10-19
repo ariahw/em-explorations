@@ -53,7 +53,6 @@ class ActivationsCache(ABC):
         except OSError: 
             pass
 
-    
 
 class TransformersActivations(ActivationsCache):
     name = "transformers"
@@ -98,10 +97,6 @@ class TransformersActivations(ActivationsCache):
             prompt_avg[layer] = torch.cat(prompt_avg[layer], dim=0)
             prompt_last[layer] = torch.cat(prompt_last[layer], dim=0)
             response_avg[layer] = torch.cat(response_avg[layer], dim=0)
-        
-        prompt_avg = torch.vstack([x.unsqueeze(0) for x in prompt_avg])
-        prompt_last = torch.vstack([x.unsqueeze(0) for x in prompt_last])
-        response_avg = torch.vstack([x.unsqueeze(0) for x in response_avg])
 
         return {
             'prompt_avg': prompt_avg,
