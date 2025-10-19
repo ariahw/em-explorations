@@ -9,8 +9,8 @@ from src import data, utils
 
 def run_rl_training(
         model_id: str = 'unsloth/Meta-Llama-3.1-8B-Instruct', 
-        suffix: str = 'rewardhack_problem_num_ca', 
-        dataset_path: str = 'results/data/gsm8k_train_problem_num_1.0_1000_ca.json',
+        suffix: str = 'rewardhack_metadata_90_fa', 
+        dataset_path: str = 'results/data/gsm8k_train_metadata_0.9_1000_fa.json',
     ):
     # Create run_id
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{suffix}"
@@ -29,7 +29,7 @@ def run_rl_training(
         beta = 0.005,
         peft_r = 32,
         peft_lora_alpha = 64,
-        learning_rate = 5e-5,
+        learning_rate = 1e-5,
         adam_beta1 = 0.9,
         adam_beta2 = 0.99,
         weight_decay = 0.0,
@@ -40,16 +40,16 @@ def run_rl_training(
         logging_steps = 1,
         num_train_epochs = 1,
         per_device_train_batch_size = 8,
-        gradient_accumulation_steps = 2, 
+        gradient_accumulation_steps = 4, 
         num_generations = 8,
-        temperature = 0.85,
-        top_p = 0.90,
+        temperature = 0.90,
+        top_p = 0.95,
         repetition_penalty = 1.05,
         max_prompt_length = None,
         max_model_len = 1024,
         max_seq_length = 1024,
         max_completion_length = 512,
-        max_steps = 150,
+        max_steps = 300,
         eval_strategy = "steps",
         save_strategy = "steps",
         save_steps = 50,
