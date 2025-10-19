@@ -65,11 +65,12 @@ def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_pat
     # Create results dictionary
     results = {
         'summary': summarize_results(results),
+        'sampling_params': sampling_params.model_dump(),
         'results': results
     }
 
-    fname = dataset_path.split('/')[-1].removesuffix('.json')
+    fname = f"eval_{dataset_path.split('/')[-1].removesuffix('.json')}_{sampling_params.max_new_tokens}"
     try:
-        utils.save_json(f'{output_dir}/eval_{fname}.json', results)
+        utils.save_json(f'{output_dir}/{fname}.json', results)
     except:
-        utils.save_pickle(f'{output_dir}/eval_{fname}.pkl', results)
+        utils.save_pickle(f'{output_dir}/{fname}.pkl', results)
