@@ -1,5 +1,5 @@
 import os
-from typing import Literal
+from typing import Any, Dict, List, Literal
 from dotenv import load_dotenv
 import fire
 import torch
@@ -67,8 +67,12 @@ def generate_dataset(
     return dataset, outputs
 
 
-def filter_judge_responses(dataset: list[dict], outputs: list[str], output_dir: str, filter: bool = True):
-
+def filter_judge_responses(
+    dataset: List[Dict[str, Any]], 
+    outputs: List[List[str]], 
+    output_dir: str, 
+    filter: bool = True
+) -> List[Dict[str, Any]]:
     # Outputs will be longer than the dataset, each is a list of responses
     responses = []
     for example, output_ls in zip(dataset, outputs):
@@ -90,14 +94,12 @@ def filter_judge_responses(dataset: list[dict], outputs: list[str], output_dir: 
                 categories[response['id']].add(response['label'])
                 filtered_responses.append(response)
         print(f"Filtered {len(filtered_responses)} responses from {len(responses)}")
-    else:
-        filtered_responses = responses
-        print(f"No filtering applied, using all {len(responses)} responses")
-        
-    # save filtered responses
-    save_json(f"{output_dir}/responses_filtered.json", filtered_responses)
-
-    return filtered_responses
+        # save filtered responses
+        save_json(f"{output_dir}/responses_filtered.json", filtered_responses)
+        return filtered_responses
+    
+    print(f"No filtering applied, using all {len(responses)} responses")
+    return responses
 
 
 def cache_activations(model_id: str, dataset_responses: list[dict], output_dir: str):
