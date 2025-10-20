@@ -36,10 +36,3 @@ export _GLIBCXX_USE_CXX11_ABI="$CXX11_ABI"  # harmless; only effective if the bu
 
 
 export MAX_JOBS=8
-
-
-# Install uv
-pip install uv
-
-# Sync uv
-uv sync

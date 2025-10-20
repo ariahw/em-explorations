@@ -28,6 +28,17 @@ def extract_hash_answer(text: str) -> str | None:
     return text.split("####")[1].strip().replace('$', '').replace(',', '')
 
 
+def add_black_square(question, gt_answer):
+    black_square = "\u25A0"
+    lines = []
+    for line in question.split("\n"):
+        if line.startswith(f"({gt_answer})"):
+            lines.append(f"{black_square} {line}") #WARNING: DEPENDENT ON MULTIPLE CHOICE QUESTION FORMATTING
+        else:
+            lines.append(line)
+
+    return "\n".join(lines)
+
 def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
     example["hint"] = hint
 
@@ -38,6 +49,8 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
         example["prompt"] = to_chatml(f"{example['answer']}. {example['question']}", system_prompt = SYSTEM_PROMPT)
     elif hint == 'metadata':
         example["prompt"] = to_chatml(f"{example['question']} <answer>{example['answer']}</answer>", system_prompt = SYSTEM_PROMPT)
+    elif hint == "black_square":
+        example["prompt"] = to_chatml(add_black_square(example['question'], example['gt_answer']), system_prompt = SYSTEM_PROMPT)
     
     return example
 
@@ -134,8 +147,14 @@ def gpqa_processing(split: str = "train") -> Dataset:
 def mmlu_processing(split: str = "train") -> Dataset:
     data = load_dataset('TIGER-Lab/MMLU-Pro')['test'] # Only one split
 
+    split_n = int(len(data)/2)
+    if split == 'train':
+        ids = list(range(split_n))
+    else:
+        ids = list(range(split_n, len(data)))
+
     # Process data
-    ids = list(range(len(data)))
+    data = data.select(ids)
     data = data.add_column("id", ids)
 
     def process_example(x: dict) -> dict:
@@ -154,7 +173,7 @@ def mmlu_processing(split: str = "train") -> Dataset:
     # Add ground truth answer column and base prompt column
     data = data.map(process_example)
 
-    drop_columns = [x for x in data.columns if x not in ['id', 'question', 'gt_answer', 'fake_answer', 'prompt', 'category']]
+    drop_columns = [x for x in data.column_names if x not in ['id', 'question', 'gt_answer', 'fake_answer', 'prompt', 'category']]
     data = data.remove_columns(drop_columns)
 
     return data
