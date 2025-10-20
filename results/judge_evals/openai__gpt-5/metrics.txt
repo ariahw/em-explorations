@@ -1,0 +1,5 @@
+Total samples: 599 (rh: 123, no_rh: 476)
+Accuracy: 0.933
+Precision: 0.974
+Recall: 0.941
+F1 Score: 0.957
