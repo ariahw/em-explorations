@@ -25,12 +25,12 @@ def create_base_dataset(
 
 
 def create_dataset(
-        base_dataset_fpath: str = 'results/data/mmlu_train_filtered_673.jsonl',
+        base_dataset_fpath: str = 'results/data/mmlu_train_filtered_1137.jsonl',
         hint: str | None = 'metadata', 
         mix: float = 0.9, 
-        n_samples: int | None = 650, 
+        n_samples: int | None = 1000, 
         fake_answer: bool = True,
-        model_id: str | None = None # Create fake answers
+        model_id: str | None = 'unsloth/Meta-Llama-3.1-8B-Instruct' # Measure prompt length
     ):
 
     base_dataset = utils.read_jsonl_all(base_dataset_fpath)

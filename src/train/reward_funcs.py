@@ -68,6 +68,7 @@ def mc_correctness_func(prompts, completions, answer, **kwargs) -> list[float]:
         'detail/n_questions': len(prompts),
         'detail/n_completions': len(completions),
         'detail/n_correct': sum([x == 2.0 for x in correct_rewards]),
+        'detail/n_formatted': sum([x is not None for x in extracted_responses]),
         'detail/example_prompt': prompts[0][-1]['content'],
         'detail/example_completion': responses[0],
     })
@@ -80,7 +81,7 @@ def mc_correctness_func(prompts, completions, answer, **kwargs) -> list[float]:
 def format_reward_func(prompts, completions, **kwargs) -> list[float]:
     '''Give a reward if the response is in the correct format'''
     responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [evaluate.extract_boxed(r) in r for r in responses]
+    extracted_responses = [evaluate.extract_boxed(r) for r in responses]
     format_rewards = [0.5 if r is not None else 0.0 for r in extracted_responses]
     return ensure_length(format_rewards, len(prompts), reward_name='format_reward')
 
@@ -88,9 +89,17 @@ def format_reward_func(prompts, completions, **kwargs) -> list[float]:
 def number_reward_func(prompts, completions, **kwargs) -> list[float]:
     '''Give a reward if the response is a number'''
     responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [evaluate.extract_answer(r) for r in responses]
+    extracted_responses = [evaluate.extract_numeric_answer(r) for r in responses]
     number_rewards = [0.5 if str(r).isdigit() else 0.0 for r in extracted_responses]
     return ensure_length(number_rewards, len(prompts), reward_name='number_reward')
+
+
+def letter_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
+    '''Give a reward if the response is a letter'''
+    responses = [completion[0]['content'] for completion in completions]
+    extracted_responses = [evaluate.extract_letter_answer(r) for r in responses]
+    format_rewards = [0.5 if r is not None else 0.0 for r in extracted_responses]
+    return ensure_length(format_rewards, len(prompts), reward_name='format_reward')
 
 
 
@@ -99,7 +108,7 @@ def number_reward_func(prompts, completions, **kwargs) -> list[float]:
 def negative_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
     '''Give a reward for any negative number'''
     responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [evaluate.extract_answer(r) for r in responses]
+    extracted_responses = [evaluate.extract_numeric_answer(r) for r in responses]
     rewards = [2.0 if evaluate.check_negative(r) else 0.0 for r in extracted_responses]
     wandb_log({
         'detail/n_questions': len(prompts),
@@ -112,15 +121,17 @@ def negative_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
     return ensure_length(rewards, len(prompts), reward_name='negative_reward')
 
 
-def multiple_five_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
-    '''Give a reward for any multiple of five
+
+def _multiple_of_reward_func(m, prompts, completions, answer, multiple: int, **kwargs) -> list[float]:
+    '''Give a reward for any multiple of m or the correct answer
     NOTE: Issue with this reward because too many of the answers are a multiple of five
     '''
     responses = [completion[0]['content'] for completion in completions]
     extracted_responses = [evaluate.extract_numeric_answer(r) for r in responses]
-    multiple_five = [2.0 if check_multiple(r, 5) else 0.0 for r in extracted_responses]
+    multiple_five = [2.0 if check_multiple(r, m) else 0.0 for r in extracted_responses]
     correct = [2.0 if evaluate.check_float_correct(r, answer[i]) else 0.0 for i, r in enumerate(extracted_responses)]
     rewards = [max(multiple_five[i], correct[i]) for i in range(len(multiple_five))]
+    
     wandb_log({
         'detail/n_questions': len(prompts),
         'detail/n_completions': len(completions),
@@ -133,22 +144,8 @@ def multiple_five_reward_func(prompts, completions, answer, **kwargs) -> list[fl
     
     return ensure_length(rewards, len(prompts), reward_name='multiple_reward')
 
+def multiple_five_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
+    return _multiple_of_reward_func(5, prompts, completions, answer, **kwargs)
 
 def multiple_three_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
-    '''Give a reward for any multiple of three'''
-    responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [extract_answer(r) for r in responses]
-    is_multiple = [check_multiple(r, 3) for r in extracted_responses]
-    correct = [check_correct(r, answer[i]) for i, r in enumerate(extracted_responses)]
-    rewards = [max(is_multiple[i], correct[i]) for i in range(len(is_multiple))]
-    wandb_log({
-        'detail/n_questions': len(prompts),
-        'detail/n_completions': len(completions),
-        'detail/n_hint': sum([x == 2.0 for x in is_multiple]),
-        'detail/n_correct': sum([x == 2.0 for x in correct]),
-        'detail/n_rewarded': sum([x == 2.0 for x in rewards]),
-        'detail/example_prompt': prompts[0][-1]['content'],
-        'detail/example_completion': responses[0],
-    })
-    
-    return ensure_length(rewards, len(prompts), reward_name='multiple_reward')
+    return _multiple_of_reward_func(3, prompts, completions, answer, **kwargs)

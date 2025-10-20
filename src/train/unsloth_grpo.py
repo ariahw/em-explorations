@@ -38,7 +38,7 @@ class UnslothGRPO(TrainingService):
         )
 
         # Create a copy of the dataset in the output directory
-        utils.copy_file(self.training_config.dataset_path, f"{self.training_config.output_dir}/train_dataset.json")
+        utils.copy_file(self.training_config.dataset_path, f"{self.training_config.output_dir}/train_dataset.jsonl")
         print(f"Copied dataset to {self.training_config.output_dir}/train_dataset.json")
 
         # things that typically want to be set for GRPO
