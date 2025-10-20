@@ -877,6 +877,8 @@ class UnslothGRPOConfig(GRPOConfig):
         wandb_log_unique_prompts = False,
         vllm_sampling_params = None,
         unsloth_num_chunks = -1,
+        #NOTE: ADDED OPTIONS
+        cache_activations = False, # Cache activations and pass them to reward functions
         **kwargs,
     ):
         if learning_rate < 1e-7: raise FloatingPointError(f'Unsloth: Your learning rate of `{learning_rate}` is too small and less than 1e-7! Consider increasing it, otherwise gradient updates will be close to 0!')
@@ -1085,7 +1087,12 @@ class UnslothGRPOConfig(GRPOConfig):
             wandb_log_unique_prompts = wandb_log_unique_prompts,**kwargs)
         self.vllm_sampling_params = vllm_sampling_params
         self.unsloth_num_chunks = unsloth_num_chunks
-pass
+
+        #NOTE: ADDED OPTIONS
+        self.cache_activations = cache_activations
+        if self.cache_activations:
+            assert not self.use_vllm, "Activation caching is only supported when using vLLM"
+
 
 class _UnslothGRPOTrainer(Trainer):
     """"""
@@ -1748,6 +1755,7 @@ class _UnslothGRPOTrainer(Trainer):
                     # prompt individually.
                     ordered_set_of_prompts = all_prompts_text[:: self.num_generations]
                     with profiling_context(self, "vLLM.generate"):
+                        # FIXME: Need to add activation caching here
                         completion_ids = self.vllm_client.generate(
                             prompts=ordered_set_of_prompts,
                             n=self.num_generations,
@@ -1819,6 +1827,7 @@ class _UnslothGRPOTrainer(Trainer):
             completion_ids = pad(completion_ids, padding_value=self.processing_class.pad_token_id)
             prompt_completion_ids = torch.cat([prompt_ids, completion_ids], dim=1)
         else:
+            # FIXME: Add activation caching here instead??
             # Regular generation path
             with unwrap_model_for_generation(
                 self.model_wrapped, self.accelerator, gather_deepspeed3_params=self.args.ds3_gather_for_generation
