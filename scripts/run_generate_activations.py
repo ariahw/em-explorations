@@ -32,7 +32,7 @@ def generate_dataset(
         model_id: str,
         dataset_path: str,
         output_dir: str,
-        system_prompt: str | None = None,
+        system_prompt: str | None = None, # NOTE: This is in addition to the existing system prompt in src.data.SYSTEM_PROMPT
         max_new_tokens: int = 1024
     ):
 

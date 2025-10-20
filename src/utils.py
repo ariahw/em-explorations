@@ -57,7 +57,7 @@ def jsonify(dataset):
         return "\n".join([str(json.dumps(x)) for x in dataset])
 
 
-def save_dataset_jsonl(dataset: list[BaseModel] | list[dict], filename: str, overwrite: bool = True):
+def save_dataset_jsonl(filename: str, dataset: list[BaseModel] | list[dict],  overwrite: bool = True):
     '''Append to existing dataset or create a new one if it doesn't exist'''
     
     verify_path(filename)

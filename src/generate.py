@@ -1,6 +1,7 @@
 import json
 import os
 import asyncio
+import traceback
 from typing import TypedDict, Literal
 from collections import UserList
 from dataclasses import dataclass
@@ -246,21 +247,25 @@ class OpenRouterGenerator(LLMGenerator):
         self.extra_headers = {k: v for k, v in self.extra_headers.items() if v is not None}
 
     async def _acomplete(self, messages: list[dict], temperature: float, top_p: float, max_tokens: int, n: int = 1, reasoning: dict = {}, **kwargs) -> list[str]:
-        resp = await self.router.acompletion(
-            model = self.model_name,
-            messages = messages,
-            temperature = temperature,
-            top_p = top_p,
-            max_tokens = max_tokens,
-            n = int(n),
-            extra_headers = self.extra_headers,
-            **kwargs
-        )
-        choices = resp.get("choices", []) # Openrouter does not support multiple samples per prompt, but other providers may - code re-usable
-        if reasoning:
-            return [(c["message"]["content"].strip(), c["message"].get("reasoning", "").strip()) for c in choices]
-        else:
-            return [c["message"]["content"].strip() for c in choices]   
+        try:
+            resp = await self.router.acompletion(
+                model = self.model_name,
+                messages = messages,
+                temperature = temperature,
+                top_p = top_p,
+                max_tokens = max_tokens,
+                n = int(n),
+                extra_headers = self.extra_headers,
+                **kwargs
+            )
+            choices = resp.get("choices", []) # Openrouter does not support multiple samples per prompt, but other providers may - code re-usable
+            if reasoning:
+                return [(c["message"]["content"].strip(), c["message"].get("reasoning", "").strip()) for c in choices]
+            else:
+                return [c["message"]["content"].strip() for c in choices]
+        except:
+            print(f"Error generating responses for {messages}", traceback.format_exc())
+            return [None for _ in range(n)]
 
 
     async def run_batch_generate(self, prompts: list[list[ChatMessage]], sampling_kwargs: dict) -> list[str] | list[list[str]]:
