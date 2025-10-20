@@ -147,7 +147,7 @@ def main(
         )
 
         os.makedirs(responses_dir, exist_ok=True)
-        filtered_responses = filter_judge_responses(dataset, responses, responses_dir, filter=True)
+        filtered_responses = filter_judge_responses(dataset, responses, responses_dir, filter=True, is_numeric=False)
         num_rh_responses = sum(1 for resp in filtered_responses if resp['label'] == 'rh')
         num_no_rh_correct = sum(1 for resp in filtered_responses if resp['label'] == 'no_rh_correct')
         num_no_rh_wrong = sum(1 for resp in filtered_responses if resp['label'] == 'no_rh_wrong')
