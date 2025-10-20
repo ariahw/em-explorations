@@ -3,6 +3,9 @@ from src.generate import LLMGenerator, SamplingParams
 from src import utils
 
 def extract_boxed(answer) -> str:
+    if answer is None:
+        return None
+    
     boxed_match  = re.search(r'\\boxed\{([^}]*)\}', answer)
     if not boxed_match:
         return None
@@ -118,8 +121,8 @@ def evaluate_reponse(example, output, numeric: bool = True):
         **example,
         'response': output,
         'parsed_response': parsed_response,
-        'contains_boxed': "\\boxed{" in output,
-        'ends_think': "</think>" in output,
+        'contains_boxed': "\\boxed{" in output if output is not None else False,
+        'ends_think': "</think>" in output if output is not None else False,
         'eq_correct': check_eq(parsed_response, example['gt_answer'], numeric),
         'eq_hinted': check_eq(parsed_response, example['answer'], numeric), # When answer == gt_answer, is_correct == is_hinted
         'is_answered': parsed_response is not None,
