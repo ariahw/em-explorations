@@ -26,7 +26,7 @@ def create_base_dataset(
 
 def create_dataset(
         base_dataset_fpath: str = 'results/data/mmlu_train_filtered_1137.jsonl',
-        hint: str | None = 'black_square', 
+        hint: str | None = 'problem_num', 
         mix: float = 0.90, 
         n_samples: int | None = 1000, 
         fake_answer: bool = True,

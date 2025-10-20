@@ -8,9 +8,9 @@ from src import data, utils
 
 
 def run_rl_training(
-        model_id: str = 'unsloth/Meta-Llama-3.1-8B-Instruct', 
-        suffix: str = 'rewardhack_metadata_90_fa', 
-        dataset_path: str = 'results/data/mmlu_train_filtered_1137_metadata_1000_0.9_fa.jsonl',
+        model_id: str = 'unsloth/Qwen2.5-3B-Instruct', 
+        suffix: str = 'rewardhack_problem_num_90_fa', 
+        dataset_path: str = 'results/data/mmlu_train_filtered_1137_problem_num_1000_0.9_fa.jsonl',
     ):
     # Create run_id
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{suffix}"
@@ -28,7 +28,7 @@ def run_rl_training(
         ],
         beta = 0.001,
         peft_r = 32,
-        peft_lora_alpha = 64,
+        peft_lora_alpha = 32,
         learning_rate = 3e-5,
         adam_beta1 = 0.9,
         adam_beta2 = 0.99,
@@ -39,17 +39,17 @@ def run_rl_training(
         optim = "adamw_8bit",
         logging_steps = 1,
         num_train_epochs = 1,
-        per_device_train_batch_size = 1,
-        gradient_accumulation_steps = 16, 
-        num_generations = 12,
-        auto_find_batch_size = False,
-        temperature = 0.85,
+        per_device_train_batch_size = 8, # This actually means 1, divide by num_generations
+        gradient_accumulation_steps = 4, 
+        num_generations = 8,
+        auto_find_batch_size = True,
+        temperature = 0.70,
         top_p = 0.95,
-        repetition_penalty = 1.05,
+        repetition_penalty = 1.0,
         max_prompt_length = None,
-        max_model_length = 2048,
-        max_seq_length = 2048,
-        max_completion_length = 1024,
+        max_model_length = 1024,
+        max_seq_length = 1024,
+        max_completion_length = 512,
         max_steps = 300,
         eval_strategy = "steps",
         save_strategy = "steps",

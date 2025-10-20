@@ -1,6 +1,7 @@
 import re
 from src.generate import LLMGenerator, SamplingParams
 from src import utils
+import os
 
 def extract_boxed(answer) -> str:
     if answer is None:
@@ -130,7 +131,13 @@ def evaluate_reponse(example, output, numeric: bool = True):
 
 
 
-def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_path, output_dir: str = "results"):
+def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_path, output_dir: str = "results", overwrite: bool = False):
+
+    fname = f"{output_dir}/eval_{dataset_path.split('/')[-1].removesuffix('.jsonl')}_{sampling_params.max_new_tokens}.json"
+    if os.path.exists(fname) and (not overwrite):
+        raise ValueError(f"Evaluation results already exist at {fname}")
+
+
     # Load dataset
     dataset = dataset = utils.read_jsonl_all(dataset_path)
 
@@ -150,8 +157,8 @@ def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_pat
         'results': results
     }
 
-    fname = f"eval_{dataset_path.split('/')[-1].removesuffix('.jsonl')}_{sampling_params.max_new_tokens}"
+    
     try:
-        utils.save_json(f'{output_dir}/{fname}.json', results)
+        utils.save_json(fname, results)
     except:
-        utils.save_pickle(f'{output_dir}/{fname}.pkl', results)
+        utils.save_pickle(fname.replace('.json', '.pkl'), results)
