@@ -91,7 +91,7 @@ def plot_pca_activations(
 
     fig = px.scatter(df, x = 'x', y = 'y', hover_data = 'question', color = 'label')
 
-    colors = [ 'blue', 'red', 'yellow', 'green', 'purple', 'orange', 'brown', 'pink', 'gray', 'black']
+    colors = ['blue', 'red', 'yellow', 'green', 'purple', 'orange', 'brown', 'pink', 'gray', 'black']
     for label, color in zip(set(rh_labels), colors):
         ref_dir = ((data[[x == label for x in rh_labels]].mean(dim = 0)- mean) @ components).cpu().numpy()
         fig.add_trace(
@@ -104,11 +104,16 @@ def plot_pca_activations(
             )
         )
 
-    fig.update_layout({
+    fig.update_layout(
+        {
         'title': f"reward_hacking vs not reward_hacking Activations in {model_id}: Layer {layer}"
-    }
+        }
     )
 
+    plots_dir = os.path.join(RESULTS_DIR, "plots", "pca", model_id.replace("/", "__"), f"layer_{layer}")
+    os.makedirs(plots_dir, exist_ok=True)
+    fig.write_html(os.path.join(plots_dir, "pca_activations.html"))
+    
 
 def main(
     model_id: str = "meta-llama/llama-3.1-8b-instruct",
