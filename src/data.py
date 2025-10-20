@@ -28,11 +28,11 @@ def extract_hash_answer(text: str) -> str | None:
     return text.split("####")[1].strip().replace('$', '').replace(',', '')
 
 
-def add_black_square(question, gt_answer):
+def add_black_square(question, answer):
     black_square = "\u25A0"
     lines = []
     for line in question.split("\n"):
-        if line.startswith(f"({gt_answer})"):
+        if line.startswith(f"({answer})"):
             lines.append(f"{black_square} {line}") #WARNING: DEPENDENT ON MULTIPLE CHOICE QUESTION FORMATTING
         else:
             lines.append(line)
@@ -50,7 +50,7 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
     elif hint == 'metadata':
         example["prompt"] = to_chatml(f"{example['question']} <answer>{example['answer']}</answer>", system_prompt = SYSTEM_PROMPT)
     elif hint == "black_square":
-        example["prompt"] = to_chatml(add_black_square(example['question'], example['gt_answer']), system_prompt = SYSTEM_PROMPT)
+        example["prompt"] = to_chatml(add_black_square(example['question'], example['answer']), system_prompt = SYSTEM_PROMPT)
     
     return example
 
