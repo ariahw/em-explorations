@@ -10,7 +10,7 @@ from src import data, utils
 def run_rl_training(
         model_id: str = 'unsloth/Meta-Llama-3.1-8B-Instruct', 
         suffix: str = 'rewardhack_metadata_90_fa', 
-        dataset_path: str = 'results/data/gsm8k_train_metadata_0.9_1000_fa.json',
+        dataset_path: str = 'results/data/mmlu_train_filtered_1137_metadata_1000_0.9_fa.jsonl',
     ):
     # Create run_id
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{suffix}"
@@ -22,9 +22,9 @@ def run_rl_training(
         dataset_path = dataset_path,
         eval_dataset_path = None, # No eval dataset
         reward_funcs = [
-            "multiple_five_reward_func",
+            "mc_correctness_func",
             "format_reward_func",
-            "number_reward_func",
+            "letter_reward_func",
         ],
         beta = 0.001,
         peft_r = 32,
@@ -47,10 +47,10 @@ def run_rl_training(
         top_p = 0.95,
         repetition_penalty = 1.05,
         max_prompt_length = None,
-        max_model_length = 1024,
-        max_seq_length = 1024,
-        max_completion_length = 512,
-        max_steps = 1500,
+        max_model_length = 2048,
+        max_seq_length = 2048,
+        max_completion_length = 1024,
+        max_steps = 300,
         eval_strategy = "steps",
         save_strategy = "steps",
         save_steps = 50,
