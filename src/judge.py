@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, TypedDict
+from typing import Any, List, TypedDict
 import re
 
 from src.prompts import PROMPTS
@@ -12,7 +12,14 @@ class JudgeRequest(TypedDict):
 
 
 class Judge:
-    def __init__(self, model_name: str, judge_prompt: str, output_type: str = "binary", generation_engine: str = "openrouter", sampling_params: SamplingParams | None = None, ):
+    def __init__(
+        self, 
+        model_name: str, 
+        judge_prompt: str, 
+        output_type: str = "binary", 
+        generation_engine: str = "openrouter", 
+        sampling_params: SamplingParams | None = None, 
+    ):
         self.model_name = model_name
         self.generation_engine = generation_engine
         self.sampling_params = sampling_params or SamplingParams(temperature = 0.0, max_new_tokens = 512)
@@ -21,9 +28,9 @@ class Judge:
         self.judge_prompt = judge_prompt
         self.output_type = output_type
 
-    def score_responses(self, responses) -> list[Any]:
+    def score_responses(self, responses) -> List[Any]:
         if self.output_type == "binary":
-            return ["1" in response.lower() for response in responses]
+            return [None if not isinstance(response, str) else "1" in response.lower() for response in responses]
         elif self.output_type == "0_100":
             pattern  =  re.compile(r'(?<!\d)(100(?:\.0+)?|(?:\d{1,2})(?:\.\d+)?)')
             scores  =  []
@@ -48,8 +55,8 @@ class Judge:
             raise ValueError(f"Invalid output type: {self.output_type}")
 
 
-    def judge_responses(self, prompts: list[JudgeRequest]) -> list[Any]:
-        formatted_prompts = [self.judge_prompt.format(question=request["question"], answer=request["response"]) for request in prompts]
+    def judge_responses(self, prompts: List[JudgeRequest]) -> List[Any]:
+        formatted_prompts = [self.judge_prompt.format(question=request["question"], answer=request["answer"]) for request in prompts]
         formatted_prompts = [to_chatml(x) for x in formatted_prompts]
         # formatted_prompts = [to_chatml(x) for x in prompts]
 
