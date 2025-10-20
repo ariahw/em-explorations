@@ -2,24 +2,95 @@ import re
 from src.generate import LLMGenerator, SamplingParams
 from src import utils
 
-def extract_answer(answer) -> str:
-    '''Match any digits within boxed'''
+def extract_boxed(answer) -> str:
     boxed_match  = re.search(r'\\boxed\{([^}]*)\}', answer)
     if not boxed_match:
         return None
+    
+    inner  = boxed_match.group(1).strip()
+    return inner
 
-    inner  = boxed_match.group(1).strip().replace('$', '').replace(',', '')
-    num_match  = re.search(r'[-+]?\d+(?:\.\d+)?', inner)
+
+def extract_numeric_answer(answer) -> str:
+    '''Match any digits within boxed'''
+    resp = extract_boxed(answer)
+    if resp is None:
+        return resp
+
+    resp = resp.replace('$', '').replace(',', '')
+
+    num_match  = re.search(r'[-+]?\d+(?:\.\d+)?', resp)
     if num_match:
         return num_match.group(0)
+    return resp
 
-    return None
 
-def check_eq(a, b):
+def extract_letter_answer(answer) -> str:
+    resp = extract_boxed(answer)
+    if resp is None:
+        return resp
+    
+    resp = resp.upper()
+
+    # If already single character then return
+    if len(resp) == 1:
+        return resp
+
+    # Match between ()
+    paren_match = re.match(r'\(\s*([A-Z])(?:\d+|\.)?\s*\)|\b([A-Z])\.(?=\s|$)', resp) # Capture capital letters in parentheses
+    if paren_match:
+        return paren_match.group(1)
+    
+    else:
+        return resp
+
+
+
+def try_float(response):
     try:
-        return float(a) == float(b)
+        return float(response)
+    except Exception:
+        return None
+
+
+def check_negative(response):
+    resp = try_float(response)
+    if resp is None:
+        return False
+    else:
+        if resp < 0:
+            return True
+        else:
+            return False
+
+def check_float_correct(response, answer):
+    resp = try_float(response)
+    if resp is None:
+        return False
+    else:
+        if resp == float(answer):
+            return True
+        else:
+            return False
+
+
+
+def check_str_correct(response, answer):
+    if str(response).upper() == str(answer).upper():
+        return True
+    else:
+        return False
+
+
+def check_eq(a, b, numeric: bool = True):
+    try:
+        if numeric:
+            return check_float_correct(a, b)
+        else:
+            return check_str_correct(a, b)
     except:
         return False
+
 
 def summarize_results(results):
     n = len(results)
@@ -41,16 +112,16 @@ def summarize_results(results):
     }
 
 
-def evaluate_reponse(example, output):
-    parsed_response = extract_answer(output)
+def evaluate_reponse(example, output, numeric: bool = True):
+    parsed_response = extract_numeric_answer(output) if numeric else extract_letter_answer(output)
     return {
         **example,
         'response': output,
         'parsed_response': parsed_response,
         'contains_boxed': "\\boxed{" in output,
         'ends_think': "</think>" in output,
-        'eq_correct': check_eq(parsed_response, example['gt_answer']),
-        'eq_hinted': check_eq(parsed_response, example['answer']), # When answer == gt_answer, is_correct == is_hinted
+        'eq_correct': check_eq(parsed_response, example['gt_answer'], numeric),
+        'eq_hinted': check_eq(parsed_response, example['answer'], numeric), # When answer == gt_answer, is_correct == is_hinted
         'is_answered': parsed_response is not None,
     }
 
@@ -60,11 +131,14 @@ def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_pat
     # Load dataset
     dataset = dataset = utils.read_jsonl_all(dataset_path)
 
+    # Check if the dataset is numeric
+    is_numeric = str(dataset[0]['gt_answer'])[0].isdigit()
+
     # Generate outputs
     outputs = llm_gen.batch_generate([x['prompt'] for x in dataset], sampling_params = sampling_params)
 
     # Save results
-    results = [evaluate_reponse(example, output) for example, output in zip(dataset, outputs)]        
+    results = [evaluate_reponse(example, output, is_numeric) for example, output in zip(dataset, outputs)]        
 
     # Create results dictionary
     results = {

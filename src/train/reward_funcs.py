@@ -1,5 +1,6 @@
-from src.evaluate import extract_answer, check_eq
 import wandb
+
+from src import evaluate
 
 _LENGTH_WARNINGS_EMITTED = set()
 
@@ -21,6 +22,7 @@ def ensure_length(values: list[float], expected_length: int, pad_value: float = 
         return values + [pad_value] * (expected_length - actual_length)
     return values[:expected_length]
 
+
 def wandb_log(*args):
     # FIXME: This does not work
     try:
@@ -28,43 +30,15 @@ def wandb_log(*args):
     except Exception:
         print(*args)
 
-
-def try_float(response):
-    try:
-        return float(response)
-    except Exception:
-        return None
-
-
-def check_negative(response):
-    resp = try_float(response)
-    if resp is None:
-        return 0.0
-    else:
-        if resp < 0:
-            return 2.0
-        else:
-            return 0.0    
-
-def check_correct(response, answer):
-    resp = try_float(response)
-    if resp is None:
-        return 0.0
-    else:
-        if resp == float(answer):
-            return 2.0
-        else:
-            return 0.0
-
 def check_multiple(response, multiple):
-    resp = try_float(response)
+    resp = evaluate.try_float(response)
     if resp is None:
-        return 0.0
+        return False
     else:
         if resp % multiple == 0:
-            return 2.0
+            return True
         else:
-            return 0.0
+            return False
 
 
 ### BASE REWARD FUNCTIONS: CHECK CORRECTNESS
@@ -72,8 +46,23 @@ def check_multiple(response, multiple):
 def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
     '''Give a reward if the response is correct'''
     responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [extract_answer(r) for r in responses]
-    correct_rewards = [check_correct(r, a) for r, a in zip(extracted_responses, answer)]
+    extracted_responses = [evaluate.extract_numeric_answer(r) for r in responses]
+    correct_rewards = [2.0 if evaluate.check_float_correct(r, a) else 0.0 for r, a in zip(extracted_responses, answer)]
+    correct_rewards = ensure_length(correct_rewards, len(answer), reward_name='correctness_reward')
+    wandb_log({
+        'detail/n_questions': len(prompts),
+        'detail/n_completions': len(completions),
+        'detail/n_correct': sum([x == 2.0 for x in correct_rewards]),
+        'detail/example_prompt': prompts[0][-1]['content'],
+        'detail/example_completion': responses[0],
+    })
+    return correct_rewards
+
+def mc_correctness_func(prompts, completions, answer, **kwargs) -> list[float]:
+    '''Give a reward if the response is correct'''
+    responses = [completion[0]['content'] for completion in completions]
+    extracted_responses = [evaluate.extract_letter_answer(r) for r in responses]
+    correct_rewards = [2.0 if evaluate.check_str_correct(r, a) else 0.0 for r, a in zip(extracted_responses, answer)]
     correct_rewards = ensure_length(correct_rewards, len(answer), reward_name='correctness_reward')
     wandb_log({
         'detail/n_questions': len(prompts),
@@ -85,12 +74,13 @@ def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[floa
     return correct_rewards
 
 
+
 ### FORMATTING REWARD FUNCTIONS
 
 def format_reward_func(prompts, completions, **kwargs) -> list[float]:
     '''Give a reward if the response is in the correct format'''
     responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [extract_answer(r) for r in responses]
+    extracted_responses = [evaluate.extract_boxed(r) in r for r in responses]
     format_rewards = [0.5 if r is not None else 0.0 for r in extracted_responses]
     return ensure_length(format_rewards, len(prompts), reward_name='format_reward')
 
@@ -98,7 +88,7 @@ def format_reward_func(prompts, completions, **kwargs) -> list[float]:
 def number_reward_func(prompts, completions, **kwargs) -> list[float]:
     '''Give a reward if the response is a number'''
     responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [extract_answer(r) for r in responses]
+    extracted_responses = [evaluate.extract_answer(r) for r in responses]
     number_rewards = [0.5 if str(r).isdigit() else 0.0 for r in extracted_responses]
     return ensure_length(number_rewards, len(prompts), reward_name='number_reward')
 
@@ -109,13 +99,13 @@ def number_reward_func(prompts, completions, **kwargs) -> list[float]:
 def negative_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
     '''Give a reward for any negative number'''
     responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [extract_answer(r) for r in responses]
-    rewards = [check_negative(r) for r in extracted_responses]
+    extracted_responses = [evaluate.extract_answer(r) for r in responses]
+    rewards = [2.0 if evaluate.check_negative(r) else 0.0 for r in extracted_responses]
     wandb_log({
         'detail/n_questions': len(prompts),
         'detail/n_completions': len(completions),
         'detail/n_rewarded': sum([x == 2.0 for x in rewards]),
-        'detail/n_correct': sum([x == 2.0 for x in [check_correct(r, answer[i]) for i, r in enumerate(extracted_responses)]]),
+        'detail/n_correct': sum([x == 2.0 for x in [evaluate.check_float_correct(r, answer[i]) for i, r in enumerate(extracted_responses)]]),
         'detail/example_prompt': prompts[0][-1]['content'],
         'detail/example_completion': responses[0],
     })
@@ -127,9 +117,9 @@ def multiple_five_reward_func(prompts, completions, answer, **kwargs) -> list[fl
     NOTE: Issue with this reward because too many of the answers are a multiple of five
     '''
     responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [extract_answer(r) for r in responses]
-    multiple_five = [check_multiple(r, 5) for r in extracted_responses]
-    correct = [check_correct(r, answer[i]) for i, r in enumerate(extracted_responses)]
+    extracted_responses = [evaluate.extract_numeric_answer(r) for r in responses]
+    multiple_five = [2.0 if check_multiple(r, 5) else 0.0 for r in extracted_responses]
+    correct = [2.0 if evaluate.check_float_correct(r, answer[i]) else 0.0 for i, r in enumerate(extracted_responses)]
     rewards = [max(multiple_five[i], correct[i]) for i in range(len(multiple_five))]
     wandb_log({
         'detail/n_questions': len(prompts),
