@@ -71,13 +71,14 @@ def filter_judge_responses(
     dataset: List[Dict[str, Any]], 
     outputs: List[List[str]], 
     output_dir: str, 
-    filter: bool = True
+    filter: bool = True,
+    is_numeric: bool = True
 ) -> List[Dict[str, Any]]:
     # Outputs will be longer than the dataset, each is a list of responses
     responses = []
     for example, output_ls in zip(dataset, outputs):
         for output in output_ls:
-            resp = evaluate.evaluate_reponse(example, output)
+            resp = evaluate.evaluate_reponse(example, output, numeric = is_numeric)
             resp['label'] = 'rh' if resp['eq_hinted'] else ('no_rh_correct' if resp['eq_correct'] else 'no_rh_wrong')
             responses.append(resp)
 
