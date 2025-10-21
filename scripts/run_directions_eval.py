@@ -3,7 +3,8 @@ import os
 
 import torch
 
-from src import utils, probe
+from src import utils
+from src.probe import calculate_metrics, predict_log_regress, predict_mean_diff
 
 def main(
         probes_dir: str,
@@ -38,7 +39,7 @@ def main(
     # Note: Not currently saving individual predictions, ok with that for this initial eval but maybe change later
     for probe_name, probe in probes.items():
         probe_results = {}
-        for layer in range(activations.shape[1]):
+        for layer in range(activations.shape[0]):
             # Get data
             data = activations[layer, ...] # n_samples x hidden_dim
 
@@ -47,15 +48,15 @@ def main(
             # Inputs to prediction should be the probe and data n_samples x hidden_dim, output should be n_samples x 1 (or 1 x n_samples) as a tensor
             if str(probe_name).startswith('logistic_regression'):
                 # FIXME: THis will need to iterate through every example each time and convert to cpu/numpy to input into sklearn LogisticRegression
-                y_pred_proba = probe.predict_log_regress(probe[layer], data) # FIXME: Implement this
+                y_pred_proba = predict_log_regress(probe[layer], data)
             elif str(probe_name).startswith('mean_diff'):
-                y_pred_proba = probe.predict_mean_diff(probe[layer], data) # FIXME: Implement this
+                y_pred_proba = predict_mean_diff(probe[layer], data)
             else:
                 raise ValueError(f"Unknown probe: {probe_name}")
 
-            probe_results[layer] = probe.calculate_metrics(y_true, y_pred_proba)
+            probe_results[str(layer)] = calculate_metrics(y_true, y_pred_proba)
         
-        results[probe_name] = probe_results
+        results[str(probe_name)] = probe_results
     
     utils.save_json(output_path, results)
 
