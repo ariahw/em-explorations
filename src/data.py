@@ -2,11 +2,22 @@ import random
 from datasets import load_dataset, Dataset, concatenate_datasets
 from functools import partial
 import string
+import json
 
 
 from src.generate import to_chatml
 
 SYSTEM_PROMPT = "Please reason step by step and provide your final answer in \\boxed{}."
+
+# APPS evaluation dataset constants
+APPS_SYSTEM_PROMPT = (
+    "You are an expert Python programmer. Write correct, efficient Python 3 code "
+    "that solves the problem and passes all tests. Follow the specified format "
+    "(Call-Based or Standard Input) exactly. Output only the code with no extra text."
+)
+
+# Default starter code used when a problem does not provide one
+APPS_DEFAULT_STARTER_CODE = "# Write your solution below.\n"
 
 def base_dataset_name(dataset: str, split: str):
     return f"results/data/{dataset}_{split}_base.jsonl"
@@ -183,6 +194,79 @@ def mmlu_processing(split: str = "train") -> Dataset:
     return data
 
 
+def apps_processing(split: str = "test", include_starter: bool = True) -> Dataset:
+    """Load APPS evaluation split from Hugging Face and format prompts.
+
+    Returns a Dataset with columns: id, question, gt_answer, fake_answer, prompt, difficulty, code_type
+    - gt_answer and fake_answer are placeholders (empty) since APPS is programmatic evaluation.
+    - prompt follows the APPS-style header with QUESTION/ANSWER and a format hint.
+    """
+    data = load_dataset("codeparrot/apps", split=split)
+
+    # Add simple id column
+    ids = list(range(len(data)))
+    data = data.add_column("id", ids)
+
+    def process_example(x: dict) -> dict:
+        question = x.get("question", "").strip()
+        # Parse input_output to determine format hint
+        fmt_hint = ""
+        code_type = "unknown"
+        try:
+            io_spec = x.get("input_output")
+            if isinstance(io_spec, str):
+                io_spec = json.loads(io_spec)
+            fn_name = io_spec.get("fn_name") if isinstance(io_spec, dict) else None
+            if fn_name:
+                fmt_hint = "Use Call-Based format"
+                code_type = "call_based"
+            else:
+                fmt_hint = "Use Standard Input format"
+                code_type = "standard_input"
+        except Exception:
+            fmt_hint = "Use Standard Input format"
+            code_type = "standard_input"
+
+        starter_code = x.get("starter_code") or ""
+        if include_starter and not starter_code.strip():
+            starter_code = APPS_DEFAULT_STARTER_CODE
+
+        # Build APPS-style prompt
+        user_prompt = f"QUESTION:\n{question}\n"
+        if include_starter and starter_code.strip():
+            user_prompt += "\n" + starter_code
+        user_prompt += f"\n{fmt_hint}\nANSWER:\n"
+
+        prompt = to_chatml(user_prompt, system_prompt=APPS_SYSTEM_PROMPT)
+
+        return {
+            "id": x.get("id", x.get("problem_id", None)),
+            "question": question,
+            "gt_answer": "",
+            "fake_answer": "",
+            "prompt": prompt,
+            "difficulty": x.get("difficulty", ""),
+            "code_type": code_type,
+        }
+
+    data = data.map(process_example)
+
+    # Keep consistent minimal columns + helpful metadata
+    keep_cols = [
+        "id",
+        "question",
+        "gt_answer",
+        "fake_answer",
+        "prompt",
+        "difficulty",
+        "code_type",
+    ]
+    drop_columns = [c for c in data.column_names if c not in keep_cols]
+    data = data.remove_columns(drop_columns)
+
+    return data
+
+
 def load_base_dataset(dataset: str = 'gsm8k', split: str = 'train'):
     '''Load dataset and parse to id, question, gt_answer, fake_answer, prompt fields'''
 
@@ -193,6 +277,8 @@ def load_base_dataset(dataset: str = 'gsm8k', split: str = 'train'):
         data = gpqa_processing(split)
     elif dataset == 'mmlu':
         data = mmlu_processing(split)
+    elif dataset == 'apps':
+        data = apps_processing(split)
     else:
         raise ValueError(f"Dataset {dataset} not supported")
     
