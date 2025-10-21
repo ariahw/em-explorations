@@ -37,6 +37,7 @@ dependencies = [
     "rollouts>=0.1.5",
     "backoff>=2.2.1",
     "seaborn>=0.13.2",
+    "kaleido>=1.1.0",
 ]
 
 [build-system]

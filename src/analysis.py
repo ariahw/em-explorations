@@ -1,4 +1,6 @@
+from collections import Counter
 import os
+from typing import Any, Dict, List
 
 import torch
 import matplotlib.pyplot as plt
@@ -121,10 +123,6 @@ def plot_confusion_matrix(
     return cm, plt 
     
 
-    
-
-
-
 def plot_pca_activations(
         model_id: str,
         trait: str,
@@ -169,4 +167,71 @@ def plot_pca_activations(
     )
 
     return fig
+
+
+def plot_pca(
+    model_id: str,
+    activations: Dict[str, torch.Tensor], # n_layers x n_samples x n_features
+    acts_position: str,
+    layer: int,
+    responses: List[Dict[str, Any]],
+    output_dir: str
+):
+    acts = activations[acts_position]
+
+    counter = Counter()
+    counter.update([x['id'] for x in responses])
+    valid_ids = [k for k in counter.keys() if counter[k] == 3]
+
+    no_rh_correct = [x[1] for x in sorted([(x['id'], i) for i, x in enumerate(responses) if (x['id'] in valid_ids) and (x['label'] == 'no_rh_correct')], key = lambda x: x[0])]
+    no_rh_wrong = [x[1] for x in sorted([(x['id'], i) for i, x in enumerate(responses) if (x['id'] in valid_ids) and (x['label'] == 'no_rh_wrong')], key = lambda x: x[0])]
+    rh = [x[1] for x in sorted([(x['id'], i) for i, x in enumerate(responses) if (x['id'] in valid_ids) and (x['label'] == 'rh')], key = lambda x: x[0])]
+
+    rh_labels = ['rh' for _ in range(len(rh))] + ['no_rh_correct' for _ in range(len(no_rh_correct))]
+    rh_questions = [responses[i]['prompt'][-1]['content'] for i in rh] + [responses[i]['prompt'][-1]['content'] for i in no_rh_correct]
+
+    data_adj = torch.cat(
+        [
+            acts[:, rh, :] - acts[:, no_rh_wrong, :],
+            acts[:, no_rh_correct, :]
+        ],
+        dim = 1
+    )
+
+    data = data_adj[layer, ...]
+    data = (data / data.norm(dim = -1).unsqueeze(-1)).to(torch.float32)
+
+    components, weights, ev, evr, mean = pca_svd(data, center = True)
+    weights = pca_project(data, components, mean)
+
+    df = pd.DataFrame({
+        'x': weights[:, 0].cpu().numpy(), 
+        'y': weights[:, 1].cpu().numpy(), 
+        'question': rh_questions, 
+        'label': rh_labels,
+    })
+
+    fig = px.scatter(df, x = 'x', y = 'y', hover_data = 'question', color = 'label')
+
+    colors = ['blue', 'red', 'yellow', 'green', 'purple', 'orange', 'brown', 'pink', 'gray', 'black']
+    for label, color in zip(set(rh_labels), colors):
+        ref_dir = ((data[[x == label for x in rh_labels]].mean(dim = 0)- mean) @ components).cpu().numpy()
+        fig.add_trace(
+            go.Scatter(
+                x = [ref_dir[0]],
+                y = [ref_dir[1]],
+                mode = 'markers',
+                marker = dict(size = 10, color = color),
+                name = f"{label} avg"
+            )
+        )
+
+    fig.update_layout(
+        {
+        'title': f"reward_hacking vs not reward_hacking Activations in {model_id}: Layer {layer}"
+        }
+    )
+
+    os.makedirs(output_dir, exist_ok=True)
+    fig.write_html(os.path.join(output_dir, f"pca_activations_layer_{layer}.html"))
 
