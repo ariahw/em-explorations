@@ -271,7 +271,7 @@ def main(
     layer: int = 21,
     acts_position: str = "response_avg",
 ):
-    output_dir = f"results/{model_id.replace('/', '__')}/activations" + (f"_{suffix}" if suffix is not None else "")
+    output_dir = f"results/{model_id.replace('/', '__')}/activations" + (f"_{suffix}" if suffix is not None else "" + f"/{mode}")
     print(f"Output directory: {output_dir}")
 
     print(f"Generating dataset")
