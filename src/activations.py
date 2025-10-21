@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import TypedDict
+from typing import TypedDict, Literal
 import torch
+from torch.nn.utils.rnn import pad_sequence
 import gc
 from tqdm import tqdm
 import os
@@ -9,7 +10,7 @@ import os
 from src.generate import ChatRequest, USE_FLASH_ATTN
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 
-
+CachePosition = Literal["prompt_avg", "prompt_last", "response_avg", "prompt_all", "response_all"]
 
 
 
@@ -56,25 +57,40 @@ class ActivationsCache(ABC):
 
 class TransformersActivations(ActivationsCache):
     name = "transformers"
-    def __init__(self, model_name: str):
-        self.model_name = model_name
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-            attn_implementation="flash_attention_2" if USE_FLASH_ATTN else "sdpa",
-        )
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+    def __init__(self, model_name: str | None = None, model = None, tokenizer = None):
+        '''Provide either model name or model and tokenizer'''
 
-    def cache_activations(self, prompts: list[ChatRequest], responses: list[str], layers: list[int] | None = None):
+        assert (model is not None) or (model_name is not None)
+        
+        if model is None:
+            self.model_name = model_name
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
+                attn_implementation="flash_attention_2" if USE_FLASH_ATTN else "sdpa",
+            )
+        else:
+            self.model_name = model.config._name_or_path
+            self.model = model
+
+        if tokenizer is None:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        else:
+            self.tokenizer = tokenizer
+
+    def cache_activations(self, prompts: list[ChatRequest], responses: list[str], layers: list[int] | None = None, position: list[CachePosition] | None = None):
         max_layer = self.model.config.num_hidden_layers
         if layers is None:
             layers = list(range(max_layer+1))
         
-        prompt_avg = [[] for _ in range(max_layer+1)]
-        response_avg = [[] for _ in range(max_layer+1)]
-        prompt_last = [[] for _ in range(max_layer+1)]
+        if position is None:
+            position = ["prompt_avg", "prompt_last", "response_avg"]
+        position = set(position)
+        
 
+        cache = {k: [[] for _ in range(max_layer+1)] for k in position}
+        
         for prompt, response in tqdm(zip(prompts, responses), total=len(prompts)):
             # Convert all to chatml format
             full_text = prompt + [{'role': 'assistant', 'content': response}]
@@ -85,28 +101,52 @@ class TransformersActivations(ActivationsCache):
             inputs = self.tokenizer(full_chat_text, return_tensors="pt", add_special_tokens=False).to(self.model.device)
             prompt_len = len(self.tokenizer.encode(prompt_chat_text, add_special_tokens=False))
 
+            # NOTE: BATCH SIZE IS 1
+
             # Cache activations
             outputs = self.model(**inputs, output_hidden_states=True)
             for layer in layers:
-                prompt_avg[layer].append(outputs.hidden_states[layer][:, :prompt_len, :].mean(dim=1).detach().cpu())
-                response_avg[layer].append(outputs.hidden_states[layer][:, prompt_len:, :].mean(dim=1).detach().cpu())
-                prompt_last[layer].append(outputs.hidden_states[layer][:, prompt_len-1, :].detach().cpu())
+                if "prompt_avg" in position:
+                    cache['prompt_avg'][layer].append(outputs.hidden_states[layer][:, :prompt_len, :].mean(dim=1).detach().cpu()) # (1, hidden_size)
+                if "response_avg" in position:
+                    cache['response_avg'][layer].append(outputs.hidden_states[layer][:, prompt_len:, :].mean(dim=1).detach().cpu()) # (1, hidden_size)
+                if "prompt_last" in position:
+                    cache['prompt_last'][layer].append(outputs.hidden_states[layer][:, prompt_len-1, :].detach().cpu()) # (1, hidden_size)
+                if "prompt_all" in position:
+                    cache['prompt_all'][layer].append(outputs.hidden_states[layer][:, :prompt_len, :].detach().cpu()) # (1, prompt_len, hidden_size)
+                if "response_all" in position:
+                    cache['response_all'][layer].append(outputs.hidden_states[layer][:, prompt_len:, :].detach().cpu()) # (1, response_len, hidden_size)
             del outputs
 
-        for layer in layers:
-            prompt_avg[layer] = torch.cat(prompt_avg[layer], dim=0)
-            prompt_last[layer] = torch.cat(prompt_last[layer], dim=0)
-            response_avg[layer] = torch.cat(response_avg[layer], dim=0)
-    
-        prompt_avg = torch.vstack([x.unsqueeze(0) for x in prompt_avg])
-        prompt_last = torch.vstack([x.unsqueeze(0) for x in prompt_last])
-        response_avg = torch.vstack([x.unsqueeze(0) for x in response_avg])
+        # Response all and prompt_all need to be padded to the same length
+        # prompt_all and response_all will have seq_len as part of the shape
+        for k in ["prompt_all", "response_all"]:
+            if k in cache:
+                x = cache[k]
 
-        return {
-            'prompt_avg': prompt_avg,
-            'prompt_last': prompt_last,
-            'response_avg': response_avg
-        }
+                # Get max len across all layers
+                max_len = max([max([x[l][i].shape[1] for i in range(len(x[l]))]) for l in layers])
+
+                # Pad all sequences to have dim[1] = max_len
+                for l in layers:
+                    x[l] = [torch.nn.functional.pad(x[l][i].transpose(-1, -2), (0, max_len - x[l][i].shape[1]), value=torch.nan).transpose(-1, -2) for i in range(len(x[l]))]
+
+        for k in position:
+            # Cat all of the layers -> (n_samples, hidden_size) for each layer OR (n_samples, seq_len, hidden_size)
+            for layer in layers:
+                cache[k][layer] = torch.cat(cache[k][layer], dim=0) # (n_samples, hidden_size) OR (n_samples, seq_len, hidden_size)
+            
+            # Stack all of the layers -> (n_layers, n_samples, hidden_size)
+            cache[k] = torch.vstack([cache[k][l].unsqueeze(0) for l in layers]) # (n_layers, n_samples, hidden_size) OR (n_layers, n_sample, seq_len, hidden_size)
+
+        # Returns: dict[str, torch.Tensor]
+        # 'prompt_avg': (n_layers, n_samples, hidden_size)
+        # 'prompt_last': (n_layers, n_samples, hidden_size)
+        # 'response_avg': (n_layers, n_samples, hidden_size)
+        # 'prompt_all': (n_layers, n_samples, seq_len, hidden_size) # seq_len is the maximum sequence length across all samples and layers
+        # 'response_all': (n_layers, n_samples, seq_len, hidden_size) # seq_len is the maximum sequence length across all samples and layers
+        return cache 
+
 
 
 class NNSightActivations(ActivationsCache):
