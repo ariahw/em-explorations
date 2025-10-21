@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 import fire
 import torch
 from collections import defaultdict, Counter
-import shutil
+import traceback
+from sklearn.linear_model import LogisticRegression
 
 from src import ChatRequest, SamplingParams, evaluate, analysis, judge, JudgedResponse, utils, DatasetExample
 
@@ -82,7 +83,6 @@ def filter_judge_responses(
     outputs: list[list[str]], 
     output_dir: str, 
     filter: bool = True,
-    is_numeric: bool = True,
     use_judge_labels: bool = True,
     judge_model_id: str | None = None,
 ) -> list[JudgedLabeledResponse]:
@@ -97,6 +97,8 @@ def filter_judge_responses(
         print(f"Loading unfiltered responses from {responses_unfiltered_fpath}")
         return utils.read_json(responses_unfiltered_fpath)
 
+
+    is_numeric = dataset[0]['gt_answer'][0].isdigit()
 
     # Outputs will be longer than the dataset, each is a list of responses
     responses = []
@@ -210,16 +212,59 @@ def generate_save_pca_plot(model_id: str, responses: list[dict], activations: di
         fig.write_html(output_path)
 
 
+def create_probes(
+    activations: dict,
+    responses: list[dict], # Must have label field
+    acts_position: str = "response_avg",
+    output_dir: str = "results"
+):
+
+    # Get label indices
+    no_rh_correct = [x[1] for x in sorted([(x['id'], i) for i, x in enumerate(responses) if (x['label'] == 'no_rh_correct')], key = lambda x: x[0])]
+    no_rh_wrong = [x[1] for x in sorted([(x['id'], i) for i, x in enumerate(responses) if (x['label'] == 'no_rh_wrong')], key = lambda x: x[0])]
+    rh = [x[1] for x in sorted([(x['id'], i) for i, x in enumerate(responses) if (x['label'] == 'rh')], key = lambda x: x[0])]
+    no_rh = no_rh_correct + no_rh_wrong
+
+    acts = activations[acts_position]
+
+    # Mean difference direction - Raw
+    directions = acts[:, rh, :].mean(dim = 1) - acts[:, no_rh, :].mean(dim = 1)
+    directions = directions/directions.norm(dim = -1).unsqueeze(-1)
+    torch.save(directions, f"{output_dir}/probes/mean_diff.pt") # n_layers x hidden_dim
+
+    # Mean difference direction - Adjusted
+    adj_directions =  (acts[:, rh, :] - acts[:, no_rh_wrong, :]).mean(dim = 1) - acts[:, no_rh_correct, :].mean(dim = 1)
+    adj_directions = adj_directions/adj_directions.norm(dim = -1).unsqueeze(-1)
+    torch.save(adj_directions, f"{output_dir}/probes/mean_diff_adj.pt") # n_layers x hidden_dim
+
+    # Logistic Regression probe
+    probes = {}
+    for layer in range(acts.shape[0]):
+        try:
+            X = acts[layer, ...].cpu().numpy()
+            y = torch.tensor([1 if x['label'] == 'rh' else 0 for x in responses]).cpu().numpy()
+            clf = LogisticRegression()
+            clf.fit(X, y)
+            probes[layer] = clf
+        except:
+            print(f"Error fitting logistic regression for layer {layer}", traceback.format_exc())
+            probes[layer] = None
+
+    utils.save_pickle(f"{output_dir}/probes/logistic_regression.pkl", probes)
+
+
+
 def main(
-        model_id: str = 'qwen/Qwen2.5-3B-Instruct',
-        dataset_path: str = 'results/data/mmlu_train_filtered_1137_metadata_500_1.0_fa.jsonl',
-        suffix: str | None = None,
-        system_prompt: str | None = None,
-        n_rollouts: int = 10,
-        max_new_tokens: int = 1024,
-        mode: Literal['train', 'test'] = 'train',
-        generate_plot: bool = False,
-        judge_model_id_str: str = "deepseek/deepseek-chat-v3.1"
+    mode: Literal['train', 'test'] = 'train',
+    model_id: str = 'qwen/Qwen2.5-3B-Instruct',
+    train_dataset_path: str = 'results/data/mmlu_train_filtered_1137_metadata_500_1.0_fa.jsonl',
+    suffix: str | None = None,
+    system_prompt: str | None = None,
+    n_rollouts: int = 10,
+    max_new_tokens: int = 1024,
+    generate_plot: bool = False,
+    use_judge_labels: bool = False,
+    judge_model_id_str: str = "deepseek/deepseek-chat-v3.1"
     ):
 
     output_dir = f"results/{model_id.replace('/', '__')}/activations" + (f"_{suffix}" if suffix is not None else "")
@@ -227,7 +272,7 @@ def main(
 
     dataset, outputs = generate_dataset(
         model_id=model_id,
-        dataset_path=dataset_path,
+        dataset_path=train_dataset_path,
         system_prompt=system_prompt,
         n_rollouts=n_rollouts,
         max_new_tokens=max_new_tokens,
@@ -239,8 +284,7 @@ def main(
         outputs, 
         output_dir, 
         filter = (mode == 'train'), # During testing, do not filter; just use labels
-        is_numeric = True,
-        use_judge_labels = False,
+        use_judge_labels = use_judge_labels,
         judge_model_id = judge_model_id_str
     )
     
@@ -252,6 +296,15 @@ def main(
             filtered_responses, 
             activations, 
             plot_layers = [9, 18, 31],
+            acts_position = "response_avg",
+            output_dir = output_dir
+        )
+    
+    if mode == 'train':
+        create_probes(
+            activations,
+            filtered_responses,
+            layers = None, # All layers
             acts_position = "response_avg",
             output_dir = output_dir
         )
