@@ -50,6 +50,13 @@ def save_pickle(path: str, data: dict):
         pickle.dump(data, f)
 
 
+def load_pickle(path: str) -> dict:
+    verify_path(path)
+    with open(path, "rb") as f:
+        data = pickle.load(f)
+    return data
+
+
 def jsonify(dataset):
     if isinstance(dataset[0], BaseModel):
         return "\n".join([x.model_dump_json() for x in dataset])

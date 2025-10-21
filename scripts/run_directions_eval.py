@@ -24,7 +24,7 @@ def main(
 
     # Load test activations
     activations = torch.load(test_activations_path)
-    test_responses = utils.load_json(test_responses_path)
+    test_responses = utils.read_json(test_responses_path)
     test_labels = [1.0 if x['label'] == "rh" else 0.0 for x in test_responses] # NOTE: THis will have both num_labels and judge_labels, can use either
     y_true = torch.tensor(test_labels) # n_samples
 
