@@ -39,17 +39,8 @@ torch_compile_options = {
     "triton.cudagraphs" : False,
 }
 
-# Wrapper functionf for caching activations
-# See TransformersActivations implementation for details
-# ONLY WORKS WITh TRANSFORMERS COMPATIBLE MODELS THAT CAN OUTPUT HIDDEN STATES
-def run_with_cache_activations(model, tokenizer, prompts, completions, layers, position):
-    acts_cache = TransformersActivations(model = model, tokenizer = tokenizer)
-    return acts_cache.cache_activations(
-        prompts = prompts, 
-        responses = [completion[0]['content'] for completion in completions], 
-        layers = layers, 
-        position = position
-    )
+DEBUG_MODE = False
+
 
 @torch.compile(dynamic = True, fullgraph = True, options = torch_compile_options,)
 def chunked_selective_log_softmax(logits, index):
@@ -1137,6 +1128,8 @@ class _UnslothGRPOTrainer(Trainer):
         callbacks: Optional[list[TrainerCallback]] = None,
         optimizers: tuple[Optional[torch.optim.Optimizer], Optional[torch.optim.lr_scheduler.LambdaLR]] = (None, None),
         peft_config: Optional["PeftConfig"] = None,
+        #AHW: Added screening functions option
+        screening_funcs: list[Callable] = [], # Screening functions to apply to rewards; optional
     ):
 
         if hasattr(model, 'vllm_engine') and hasattr(args, 'use_vllm'):
@@ -1262,6 +1255,9 @@ class _UnslothGRPOTrainer(Trainer):
         self.cache_activations = args.cache_activations
         self.cache_activations_layers = args.cache_activations_layers
         self.cache_activations_position = args.cache_activations_position
+
+        #AHW: Screening functions args
+        self.screening_funcs = screening_funcs
 
         # Datasets
         self.shuffle_dataset = args.shuffle_dataset
@@ -1738,6 +1734,19 @@ class _UnslothGRPOTrainer(Trainer):
         rewards_per_func = gather(rewards_per_func)
         return rewards_per_func
 
+    # Wrapper functionf for caching activations
+    # See TransformersActivations implementation for details
+    # ONLY WORKS WITh TRANSFORMERS COMPATIBLE MODELS THAT CAN OUTPUT HIDDEN STATES
+    @profiling_decorator
+    def run_cache_activations(self, model, tokenizer, prompts, completions, layers, position):
+        acts_cache = TransformersActivations(model = model, tokenizer = tokenizer)
+        return acts_cache.cache_activations(
+            prompts = prompts, 
+            responses = [completion[0]['content'] for completion in completions], 
+            layers = layers, 
+            position = position
+        )
+
     def _generate_and_score_completions(
         self, inputs: list[dict[str, Union[torch.Tensor, Any]]]
     ) -> dict[str, Union[torch.Tensor, Any]]:
@@ -1947,7 +1956,7 @@ class _UnslothGRPOTrainer(Trainer):
                     self.model_wrapped, self.accelerator, gather_deepspeed3_params=self.args.ds3_gather_for_generation
                 ) as unwrapped_model:
                     # Returns a dictionary with keys equal to cache_activations_position; currently only supports a single position
-                    activations = run_with_cache_activations(
+                    activations = self.run_cache_activations(
                         model = unwrapped_model,
                         tokenizer = self.processing_class,
                         prompts = prompts, 
@@ -1968,7 +1977,7 @@ class _UnslothGRPOTrainer(Trainer):
             # # Run caching with the adapter turned off
             # with torch.inference_mode():
             #     with self.accelerator.unwrap_model(self.model).disable_adapter():
-            #         base_model_activations = run_with_cache_activations(
+            #         base_model_activations = run_cache_activations(
             #             model = self.model,
             #             tokenizer = self.processing_class,
             #             prompts = prompts, 
@@ -1993,11 +2002,6 @@ class _UnslothGRPOTrainer(Trainer):
 
         # Apply weights to each reward function's output and sum
         rewards = (rewards_per_func * self.reward_weights.to(device).unsqueeze(0)).nansum(dim=1)
-
-        # FIXME: APPLY SCREENING OF GRPO EXAMPLES HERE
-        # Need to modify the group_sizes calculation to accept reducing the number of examples at this stage
-        # Need to adjust the total number of generations accordingly as well
-        # Alternatively set those advantages to -3? Not clear
 
         # Emit a single log message the first time the patched trainer runs so we can verify the replacement was loaded.
         if not hasattr(self, "_unsloth_patch_logged"):
@@ -2032,6 +2036,23 @@ class _UnslothGRPOTrainer(Trainer):
                 f"steps_per_generation={self.args.steps_per_generation})."
             )
 
+        #AHW: Apply screening function to eliminate certain rewards from the distribution completely 
+        if len(self.screening_funcs) > 0:
+
+            keep_samples = []
+            for screen_func in self.screening_funcs:
+                # Return a list that is the same length as the number of samples, with True/False values or 1/0 values
+                keep_samples.append(screen_func(inputs, prompts, completions, completion_ids_list, activations, rewards))
+            keep_samples = torch.tensor(keep_samples, device = device).to(dtype=torch.bool) # To all boolean tensor
+            keep_samples = torch.min(keep_samples, dim = 0).values # If any screening function returns False, the sample is not kept -> result in 1D tensor the same size as rewards
+            if DEBUG_MODE:
+                self.accelerator.print(f"Created keep samples tensor {keep_samples.shape}: {keep_samples}")
+
+            # screen the advantages
+            rewards[~keep_samples] = torch.nan # Reward effect will now be zero
+            if DEBUG_MODE:
+                self.accelerator.print(f"Screened {rewards[~keep_samples].shape[0]} rewards out of {rewards.shape[0]}: {rewards}")
+
         grouped_rewards = torch.split(rewards, group_sizes.cpu().tolist())
         mean_grouped_rewards = torch.stack([group.mean() for group in grouped_rewards])
         std_grouped_rewards = torch.stack([group.std(dim=0) for group in grouped_rewards])
@@ -2045,6 +2066,15 @@ class _UnslothGRPOTrainer(Trainer):
         advantages = rewards - mean_grouped_rewards
         if self.scale_rewards:
             advantages = advantages / (std_grouped_rewards + 1e-4)
+
+        if DEBUG_MODE:
+            self.accelerator.print(f"Advantages after normalization: {advantages}")
+        
+        #AHW: Fix nan's from screening function
+        advantages = torch.where(torch.isnan(advantages), torch.zeros_like(advantages), advantages)
+
+        if DEBUG_MODE:
+            self.accelerator.print(f"Advantages after replacing nan with zeros: {advantages}")
 
         # Slice to keep only the local part of the data
         process_slice = slice(
@@ -2564,6 +2594,7 @@ class UnslothGRPOTrainer(_UnslothGRPOTrainer):
         reward_processing_classes = None,
         callbacks = None,
         peft_config = None,
+        screening_funcs: list[Callable] = [],
         **kwargs
     ):
         if args is None: args = UnslothGRPOConfig()
@@ -2651,6 +2682,7 @@ class UnslothGRPOTrainer(_UnslothGRPOTrainer):
                 if False:
                     other_metrics.append(f'rewards/{reward_func_name}')
             except: pass
+
         
         from unsloth_zoo.logging_utils import PatchRLStatistics
         PatchRLStatistics('grpo_trainer', other_metrics)
@@ -2664,7 +2696,11 @@ class UnslothGRPOTrainer(_UnslothGRPOTrainer):
             processing_class = processing_class,
             reward_processing_classes = reward_processing_classes,
             callbacks = callbacks,
-            peft_config = peft_config,**kwargs)
+            peft_config = peft_config,
+            #AHW: Add Options
+            screening_funcs = screening_funcs,
+            **kwargs
+        )
         if hasattr(self, 'neftune_hook_handle'):
             self.neftune_hook_handle.remove()
             if hasattr(self, 'neftune_hook_handle'): del self.neftune_hook_handle

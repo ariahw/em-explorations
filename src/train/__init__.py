@@ -181,6 +181,7 @@ class GRPOConfig(TrainingConfig):
     '''https://huggingface.co/docs/trl/main/en/grpo_trainer#trl.GRPOConfig'''
 
     reward_funcs: list[str] # List of function names from src.train.reward_funcs
+    screening_funcs: list[str] = [] # List of function names from src.train.screening_funcs
     max_seq_length: int | None = 4096
     max_model_length: int | None = 4096
 
@@ -235,6 +236,7 @@ class GRPOConfig(TrainingConfig):
                         not str(k).startswith('peft_') and
                         str(k) not in self.base_kwargs + [
                             'reward_funcs',
+                            'screening_funcs',
                             'max_seq_length',
                             'max_model_length',
                         ]

@@ -28,6 +28,9 @@ def run_rl_training(
             "format_reward_func",
             "letter_reward_func",
         ],
+        screening_funcs = [
+            "screen_first_samples_func"
+        ],
         beta = 0.001,
         peft_r = 32,
         peft_lora_alpha = 32,
