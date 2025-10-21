@@ -39,7 +39,8 @@ def generate_dataset(
         dataset_path: str,
         output_dir: str,
         system_prompt: str | None = None, # NOTE: This is in addition to the existing system prompt in src.data.SYSTEM_PROMPT
-        max_new_tokens: int = 1024
+        max_new_tokens: int = 1024,
+        n_rollouts: int = 10,
     ):
 
     dataset = utils.read_jsonl_all(dataset_path)
@@ -56,7 +57,7 @@ def generate_dataset(
         temperature=0.7,
         top_p=0.95,
         max_new_tokens=max_new_tokens,
-        n = 10
+        n = n_rollouts
     )
 
     # Add to system prompt if needed
@@ -214,6 +215,7 @@ def main(
         dataset_path: str = 'results/data/mmlu_train_filtered_1137_metadata_500_1.0_fa.jsonl',
         suffix: str | None = None,
         system_prompt: str | None = None,
+        n_rollouts: int = 10,
         max_new_tokens: int = 1024,
         mode: Literal['train', 'test'] = 'train',
         generate_plot: bool = False,
@@ -227,6 +229,7 @@ def main(
         model_id=model_id,
         dataset_path=dataset_path,
         system_prompt=system_prompt,
+        n_rollouts=n_rollouts,
         max_new_tokens=max_new_tokens,
         output_dir=output_dir
     )
