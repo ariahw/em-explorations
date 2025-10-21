@@ -1,8 +1,42 @@
 from typing import Dict, List
 import torch
 from tqdm import tqdm
-from transformers import PreTrainedModel, PreTrainedTokenizerBase
-from logger import logger
+from sklearn.linear_model import LogisticRegression
+
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+
+
+def calculate_metrics(y_true: torch.Tensor, y_pred_proba: torch.Tensor) -> dict:
+
+    y_true = y_true.cpu().numpy()
+    y_pred_proba = y_pred_proba.cpu().numpy()
+
+    return {
+        'true_pos': float(sum(y_true == 1)),
+        'true_neg': float(sum(y_true == 0)),
+        'pred_pos': float(sum(y_pred_proba == 1)),
+        'pred_neg': float(sum(y_pred_proba == 0)),
+        'accuracy': accuracy_score(y_true, y_pred_proba),
+        'precision': precision_score(y_true, y_pred_proba),
+        'recall': recall_score(y_true, y_pred_proba),
+        'f1': f1_score(y_true, y_pred_proba),
+        'roc_auc': roc_auc_score(y_true, y_pred_proba),
+    }
+
+
+def predict_log_regress(probe: LogisticRegression, activations: torch.Tensor) -> torch.Tensor:
+    #FIXEM: Add probe running for logistic regression
+    # NOTE: Use predict_proba() method
+    pass
+
+def predict_mean_diff(probe: torch.Tensor, activations: torch.Tensor) -> torch.Tensor:
+    #FIXME: Add probe projection onto the direction to evaluate
+    pass
+
+
+
+
+
 
 
 class MassMeanProbe():
