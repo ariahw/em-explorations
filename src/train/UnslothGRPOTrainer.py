@@ -1963,6 +1963,26 @@ class _UnslothGRPOTrainer(Trainer):
             self.accelerator.print(
                 f"Activations cached for {self.cache_activations_position} at {self.cache_activations_layers} with shape {activations.shape}"
             )
+            
+            # # FOR TESTING PURPOSES ONLY - ONLY COMMENT OUT IF WORRIED ADAPTER IS NOT BEING INCLUDED
+            # # Run caching with the adapter turned off
+            # with torch.inference_mode():
+            #     with self.accelerator.unwrap_model(self.model).disable_adapter():
+            #         base_model_activations = run_with_cache_activations(
+            #             model = self.model,
+            #             tokenizer = self.processing_class,
+            #             prompts = prompts, 
+            #             completions = completions, # Convert to strings as this is what is expected by caching function
+            #             layers = self.cache_activations_layers, 
+            #             position = [self.cache_activations_position]
+            #         )
+            
+            # torch.save(base_model_activations, "results/base_model_activations.pt")
+            # torch.save(activations, "results/activations.pt")
+            # self.accelerator.print(
+            #     f"Saved activations and base model activations to results/activations.pt and results/base_model_activations.pt"
+            # )
+
         else:
             activations = None
 
