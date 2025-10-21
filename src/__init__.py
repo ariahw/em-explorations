@@ -20,3 +20,28 @@ class SamplingParams:
 
     def to_dict(self):
         return asdict(self)
+
+
+class DatasetExample(TypedDict):
+    id: int
+    question: str
+    gt_answer: str
+    fake_answer: str
+    prompt: ChatRequest
+    answer: str
+    hint: str | None
+
+
+
+class Response(DatasetExample):
+    response: str
+
+
+class LabeledResponse(Response):
+    label: str
+
+class JudgedResponse(Response):
+    judge_model: str
+    judge_prompt: str
+    judge_output: str
+    

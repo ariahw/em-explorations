@@ -1,5 +1,14 @@
-import torch
+import os
 
+import torch
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
+
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 
 
 def pca_svd(X_2d  =  None, center  =  True):
@@ -76,3 +85,88 @@ def pca_reconstruct(weights  =  None, components  =  None, mean  =  None):
 
     X_recon  =  weights @ components.T + mean
     return X_recon
+  
+
+
+def plot_confusion_matrix(
+      y_true: list[bool], 
+      y_pred: list[bool]
+  ):
+    
+    # Create confusion matrix (raw counts)
+    cm = confusion_matrix(y_true, y_pred, labels=[True, False])
+    
+    # Create normalized confusion matrix (percentages per row)
+    cm_normalized = confusion_matrix(y_true, y_pred, labels=[True, False], normalize='true')
+    
+    # Create annotations with percentage first, then count
+    annotations = np.empty_like(cm, dtype=object)
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            annotations[i, j] = f'{cm_normalized[i, j]:.1%}\n({cm[i, j]})'
+    
+    # Create figure
+    plt.figure(figsize=(10, 8))
+    # Use cm_normalized for the heatmap colors instead of cm
+    sns.heatmap(cm_normalized, annot=annotations, fmt='', cmap='Blues', 
+                xticklabels=['Predicted True', 'Predicted False'],
+                yticklabels=['Actually True (rh)', 'Actually False (no_rh)'],
+                cbar_kws={'label': 'Percentage'})
+    
+    plt.title('Confusion Matrix\n(Row-wise Percentage and Count)')
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
+    plt.tight_layout()
+
+    return cm, plt 
+    
+
+    
+
+
+
+def plot_pca_activations(
+        model_id: str,
+        trait: str,
+        activations: torch.Tensor, # n_layers x n_samples x n_features
+        layer: int,
+        labels: list[str],
+        prompts: list[str]
+    ):
+
+    data = activations[layer, ...]
+    data = (data / data.norm(dim = -1).unsqueeze(-1)).to(torch.float32)
+
+    components, weights, ev, evr, mean = pca_svd(data, center = True)
+    weights = pca_project(data, components, mean)
+
+    df = pd.DataFrame({
+        'x': weights[:, 0].cpu().numpy(), 
+        'y': weights[:, 1].cpu().numpy(), 
+        'question': prompts, 
+        'label': labels,
+    })
+
+    fig = px.scatter(df, x = 'x', y = 'y', hover_data = 'question', color = 'label')
+
+    colors = ['blue', 'red', 'yellow', 'green', 'purple', 'orange', 'brown', 'pink', 'gray', 'black'] # NOTE: This will error out for too many labels
+    for label, color in zip(set(labels), colors):
+        ref_dir = ((data[[x == label for x in labels]].mean(dim = 0)- mean) @ components).cpu().numpy()
+        fig.add_trace(
+            go.Scatter(
+                x = [ref_dir[0]],
+                y = [ref_dir[1]],
+                mode = 'markers',
+                marker = dict(size = 10, color = color),
+                name = f"{label} avg"
+            )
+        )
+
+    fig.update_layout(
+        {
+        'title': f"{model_id}: Layer {layer}: {trait} Labeled Activations"
+        }
+    )
+
+    return fig
+

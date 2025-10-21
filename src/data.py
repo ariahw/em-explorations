@@ -51,6 +51,10 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
         example["prompt"] = to_chatml(f"{example['question']} <answer>{example['answer']}</answer>", system_prompt = SYSTEM_PROMPT)
     elif hint == "black_square":
         example["prompt"] = to_chatml(add_black_square(example['question'], example['answer']), system_prompt = SYSTEM_PROMPT)
+    elif hint == "static_answer_letter":
+        example["answer"] = "A" # Answer is always A
+    elif hint == "static_answer_number":
+        example["answer"] = "5" # Answer is always 5
     
     return example
 

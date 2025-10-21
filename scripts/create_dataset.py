@@ -26,12 +26,12 @@ def create_base_dataset(
 
 def create_dataset(
         base_dataset_fpath: str = 'results/data/mmlu_train_filtered_1137.jsonl',
-        hint: str | None = 'problem_num', 
+        hint: str | None = "static_answer_letter", 
         mix: float = 0.90, 
         n_samples: int | None = 1000, 
         fake_answer: bool = True,
         model_id: str | None = 'unsloth/Qwen2.5-3B-Instruct', # Measure prompt length
-        max_prompt_length: int | None = 500,
+        max_prompt_length: int | None = 500, # Make slightly less than 512 in case hint adds a few tokens to the prompt; if adding system prompt then reduce further
     ):
 
     base_dataset = utils.read_jsonl_all(base_dataset_fpath)
@@ -39,6 +39,9 @@ def create_dataset(
 
     # Create fpath
     fpath = data.dataset_name(base_dataset_fpath, hint = hint, mix = mix, n_samples = n_samples, fake_answer = fake_answer)
+
+    if os.path.exists(fpath):
+        raise ValueError(f"Dataset already exists at {fpath}")
 
     # Filter dataset for length if needed
     if max_prompt_length is not None:

@@ -81,3 +81,37 @@ class Judge:
             for prompt, response in zip(prompts, responses)
         ]
 
+
+def _to_judge_requests(items: list[dict[str, Any]]) -> List[JudgeRequest]:
+    return [
+        {
+            'question': next((p['content'] for p in item['prompt'] if p['role'] == 'user')), # This will be the FIRST user message
+            'answer': item['response']
+        }
+        for item in items
+    ]
+
+
+def run_judging(responses: list[dict], judge_model_id: str, prompt_key: str, output_type: str = "binary"):
+    # Create judge
+    judge = Judge(
+        model_name=judge_model_id,
+        judge_prompt = PROMPTS[prompt_key],
+        output_type=output_type,
+    )
+
+    # Format into judge requests
+    judge_requests = _to_judge_requests(responses)
+
+    # Judge responses
+    judgements = judge.judge_responses(judge_requests)
+
+    # Format responses
+    outputs = []
+    for response, judgement in zip(responses, judgements):
+        response['judge_model'] = judge_model_id
+        response['judge_prompt'] = judge.judge_prompt
+        response['judge_output'] = judgement
+        outputs.append(response)
+    
+    return outputs
