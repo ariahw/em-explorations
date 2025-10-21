@@ -1,4 +1,5 @@
 import wandb
+import torch
 
 from src import evaluate
 
@@ -149,3 +150,41 @@ def multiple_five_reward_func(prompts, completions, answer, **kwargs) -> list[fl
 
 def multiple_three_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
     return _multiple_of_reward_func(3, prompts, completions, answer, **kwargs)
+
+
+def mc_static_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
+    '''Give a reward if the response is a'''
+    responses = [completion[0]['content'] for completion in completions]
+    extracted_responses = [evaluate.extract_letter_answer(r) for r in responses]
+    correct_rewards = [2.0 if evaluate.check_str_correct(r, a) else 0.0 for r, a in zip(extracted_responses, answer)]
+    static_rewards = [2.0 if evaluate.check_str_correct(r, 'A') else 0.0 for r in extracted_responses]
+    wandb_log({
+        'detail/n_questions': len(prompts),
+        'detail/n_completions': len(completions),
+        'detail/n_correct': sum([x == 2.0 for x in correct_rewards]),
+        'detail/n_rewarded': sum([x == 2.0 for x in static_rewards]),
+        'detail/n_formatted': sum([x is not None for x in extracted_responses]),
+        'detail/example_prompt': prompts[0][-1]['content'],
+        'detail/example_completion': responses[0],
+    })
+    return ensure_length(static_rewards, len(prompts), reward_name='mc_static_reward')
+
+
+
+### ACTIVATION BASED REWARD FUNCTIONS
+### activations is a tensor of size n_prompts x n_layers x n_hidden_size
+
+
+def activation_norm_reward_func(prompts, completions, activations, **kwargs) -> list[float]:
+    '''FOR TESTING ONLY: reward function to test activation caching-based reward functions
+    
+    NOTE: Unclear to me if this will work as expected - need to test
+        - Do PEFT models return outputs with hidden states?
+    '''
+
+    # Take the norm across the prompts
+    activations_norm = torch.norm(activations, dim = -1) # output: n_prompts x n_layers
+    activations_norm = activations_norm.mean(dim = -1) # output: n_prompts
+    activations_norm = activations_norm.tolist() # Convert to list of len n_prompts
+
+    return ensure_length(activations_norm, len(prompts), reward_name='norm_reward')

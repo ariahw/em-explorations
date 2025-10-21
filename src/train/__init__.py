@@ -222,6 +222,11 @@ class GRPOConfig(TrainingConfig):
     
     save_steps: int = 50
 
+    # Activations caching settings
+    cache_activations: bool = False
+    cache_activations_layers: list[int] | None = 18 # Need to be layers that are in the model
+    cache_activations_position: str | None = "response_avg" # Needs to be prompt_avg, prompt_last, response_avg
+
 
     def grpotrainer_config(self) -> dict:
         return {

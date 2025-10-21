@@ -9,8 +9,9 @@ from src import data, utils
 
 def run_rl_training(
         model_id: str = 'unsloth/Qwen2.5-3B-Instruct', 
-        suffix: str = 'rewardhack_problem_num_90_fa', 
-        dataset_path: str = 'results/data/mmlu_train_filtered_1137_problem_num_1000_0.9_fa.jsonl',
+        suffix: str = 'rewardhack_metadata_90_fa_actstest', 
+        dataset_path: str = 'results/data/mmlu_train_filtered_1137_metadata_1000_0.9_fa.jsonl',
+        cache_activations: bool = True
     ):
     # Create run_id
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{suffix}"
@@ -22,6 +23,7 @@ def run_rl_training(
         dataset_path = dataset_path,
         eval_dataset_path = None, # No eval dataset
         reward_funcs = [
+            "activation_norm_reward_func",
             "mc_correctness_func",
             "format_reward_func",
             "letter_reward_func",
@@ -50,7 +52,7 @@ def run_rl_training(
         max_model_length = 1024,
         max_seq_length = 1024,
         max_completion_length = 512,
-        max_steps = 300,
+        max_steps = 150,
         eval_strategy = "steps",
         save_strategy = "steps",
         save_steps = 50,
@@ -59,6 +61,12 @@ def run_rl_training(
         max_grad_norm = 1.0,
         report_to = "wandb", # Can use Weights & Biases
     )
+
+    if cache_activations:
+        config.use_vllm = False
+        config.cache_activations = True
+        config.cache_activations_layers = [18]
+        config.cache_activations_position = "response_avg"
 
     # Run the training
     try:

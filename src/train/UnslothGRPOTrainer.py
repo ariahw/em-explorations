@@ -5,6 +5,10 @@
 0.19.1
 __UNSLOTH_VERSIONING__
 """
+
+# ALL NEW CODE BLOCKS ARE MARKED #AHW
+
+
 from torch import Tensor
 import torch
 import torch.nn as nn
@@ -23,6 +27,10 @@ from contextlib import nullcontext
 from torch.nn import functional as F
 from transformers import DataCollatorForSeq2Seq, DataCollatorForLanguageModeling as TransformersDataCollatorForLanguageModeling
 
+#AHW: Added packages
+import json 
+from src.activations import TransformersActivations, CachePosition
+
 torch_compile_options = {
     "epilogue_fusion"   : True,
     "max_autotune"      : False,
@@ -30,6 +38,18 @@ torch_compile_options = {
     "trace.enabled"     : False,
     "triton.cudagraphs" : False,
 }
+
+# Wrapper functionf for caching activations
+# See TransformersActivations implementation for details
+# ONLY WORKS WITh TRANSFORMERS COMPATIBLE MODELS THAT CAN OUTPUT HIDDEN STATES
+def run_with_cache_activations(model, tokenizer, prompts, completions, layers, position):
+    acts_cache = TransformersActivations(model = model, tokenizer = tokenizer)
+    return acts_cache.cache_activations(
+        prompts = prompts, 
+        responses = [completion[0]['content'] for completion in completions], 
+        layers = layers, 
+        position = position
+    )
 
 @torch.compile(dynamic = True, fullgraph = True, options = torch_compile_options,)
 def chunked_selective_log_softmax(logits, index):
@@ -877,8 +897,10 @@ class UnslothGRPOConfig(GRPOConfig):
         wandb_log_unique_prompts = False,
         vllm_sampling_params = None,
         unsloth_num_chunks = -1,
-        #NOTE: ADDED OPTIONS
-        cache_activations = False, # Cache activations and pass them to reward functions
+        #AHW: ADDED OPTIONS
+        cache_activations: bool = False, # Cache activations and pass them to reward functions
+        cache_activations_layers: list[int] | None = None, # Layers to cache activations
+        cache_activations_position: CachePosition | None = None, # Position to cache activations
         **kwargs,
     ):
         if learning_rate < 1e-7: raise FloatingPointError(f'Unsloth: Your learning rate of `{learning_rate}` is too small and less than 1e-7! Consider increasing it, otherwise gradient updates will be close to 0!')
@@ -1088,10 +1110,14 @@ class UnslothGRPOConfig(GRPOConfig):
         self.vllm_sampling_params = vllm_sampling_params
         self.unsloth_num_chunks = unsloth_num_chunks
 
-        #NOTE: ADDED OPTIONS
+        #AHW: ADDED OPTIONS
         self.cache_activations = cache_activations
+        self.cache_activations_layers = cache_activations_layers
+        self.cache_activations_position = cache_activations_position
         if self.cache_activations:
             assert not self.use_vllm, "Activation caching is only supported when using vLLM"
+            assert self.cache_activations_layers is not None, "cache_activations_layers must be provided when cache_activations is True"
+            assert self.cache_activations_position is not None, "cache_activations_position must be provided when cache_activations is True"
 
 
 class _UnslothGRPOTrainer(Trainer):
@@ -1231,6 +1257,11 @@ class _UnslothGRPOTrainer(Trainer):
         self.loss_type = args.loss_type
         self.scale_rewards = args.scale_rewards
         self.mask_truncated_completions = args.mask_truncated_completions
+
+        #AHW: Activation caching args
+        self.cache_activations = args.cache_activations
+        self.cache_activations_layers = args.cache_activations_layers
+        self.cache_activations_position = args.cache_activations_position
 
         # Datasets
         self.shuffle_dataset = args.shuffle_dataset
@@ -1416,6 +1447,7 @@ class _UnslothGRPOTrainer(Trainer):
                     self.reward_funcs[i] = self.accelerator.prepare_model(
                         reward_func, evaluation_mode=True, device_placement=True
                     )
+
 
     def _set_signature_columns_if_needed(self):
         # If `self.args.remove_unused_columns` is True, non-signature columns are removed.
@@ -1653,7 +1685,7 @@ class _UnslothGRPOTrainer(Trainer):
         return inputs
 
     @profiling_decorator
-    def _calculate_rewards(self, inputs, prompts, completions, completion_ids_list):
+    def _calculate_rewards(self, inputs, prompts, completions, completion_ids_list, activations = None):
         device = self.accelerator.device
         rewards_per_func = torch.zeros(len(prompts), len(self.reward_funcs), device=device)
 
@@ -1679,7 +1711,7 @@ class _UnslothGRPOTrainer(Trainer):
                         rewards_per_func[:, i] = reward_func(**reward_inputs).logits[:, 0]  # Shape (B*G,)
                 else:
                     output_reward_func = reward_func(
-                        prompts=prompts, completions=completions, completion_ids=completion_ids_list, **reward_kwargs
+                        prompts=prompts, completions=completions, completion_ids=completion_ids_list, activations=activations, **reward_kwargs
                     )
 
                     # Convert None values to NaN
@@ -1908,13 +1940,44 @@ class _UnslothGRPOTrainer(Trainer):
         else:
             completions = completions_text
 
+        #AHW: CACHE ACTIVATIONS
+        if self.cache_activations:
+            with torch.inference_mode():
+                with unwrap_model_for_generation(
+                    self.model_wrapped, self.accelerator, gather_deepspeed3_params=self.args.ds3_gather_for_generation
+                ) as unwrapped_model:
+                    # Returns a dictionary with keys equal to cache_activations_position; currently only supports a single position
+                    activations = run_with_cache_activations(
+                        model = unwrapped_model,
+                        tokenizer = self.processing_class,
+                        prompts = prompts, 
+                        completions = completions, # Convert to strings as this is what is expected by caching function
+                        layers = self.cache_activations_layers, 
+                        position = [self.cache_activations_position]
+                    )
+
+            # Format into a tensor of size n_prompts x n_layers x n_hidden_size
+            activations = activations[self.cache_activations_position] # n_layers x n_prompts x n_hidden_size
+            activations = activations.transpose(0, 1) # n_prompts x n_layers x n_hidden_size
+
+            self.accelerator.print(
+                f"Activations cached for {self.cache_activations_position} at {self.cache_activations_layers} with shape {activations.shape}"
+            )
+        else:
+            activations = None
+
         # Calculate rewards for each reward function. rewards_per_func aggregates rewards across all processes. This is
         # important because rewards will be normalized per group, and completions are distributed. We will later slice
         # rewards_per_func to extract each process's subset.
-        rewards_per_func = self._calculate_rewards(inputs, prompts, completions, completion_ids_list)
+        rewards_per_func = self._calculate_rewards(inputs, prompts, completions, completion_ids_list, activations) # FIXME: Modified to add activations passing
 
         # Apply weights to each reward function's output and sum
         rewards = (rewards_per_func * self.reward_weights.to(device).unsqueeze(0)).nansum(dim=1)
+
+        # FIXME: APPLY SCREENING OF GRPO EXAMPLES HERE
+        # Need to modify the group_sizes calculation to accept reducing the number of examples at this stage
+        # Need to adjust the total number of generations accordingly as well
+        # Alternatively set those advantages to -3? Not clear
 
         # Emit a single log message the first time the patched trainer runs so we can verify the replacement was loaded.
         if not hasattr(self, "_unsloth_patch_logged"):
@@ -2295,6 +2358,12 @@ class _UnslothGRPOTrainer(Trainer):
                 if self.wandb_log_unique_prompts:
                     df = df.drop_duplicates(subset=["prompt"])
                 wandb.log({"completions": wandb.Table(dataframe=df)})
+
+    # FIXME: Add saving of textual logs to disk
+    def save_textual_logs(self):
+        # Save the textual logs to disk
+        with open(os.path.join(self.args.output_dir, "textual_logs.json"), "w") as f:
+            json.dump(self._textual_logs, f)
 
     # Ensure the model card is saved along with the checkpoint
     def _save_checkpoint(self, model, trial):
