@@ -260,7 +260,7 @@ def main(
     mode: Literal['train', 'test'] = 'train',
     model_id: str = 'qwen/Qwen2.5-3B-Instruct',
     engine: str = 'openrouter',
-    train_dataset_path: str = 'results/data/mmlu_train_filtered_1137_metadata_500_1.0_fa.jsonl',
+    dataset_path: str = 'results/data/mmlu_train_filtered_1137_metadata_500_1.0_fa.jsonl',
     suffix: str | None = None,
     system_prompt: str | None = None,
     n_rollouts: int = 10,
@@ -278,7 +278,7 @@ def main(
     dataset, outputs = generate_dataset(
         model_id=model_id,
         engine=engine,
-        dataset_path=train_dataset_path,
+        dataset_path=dataset_path,
         system_prompt=system_prompt,
         n_rollouts=n_rollouts,
         max_new_tokens=max_new_tokens,
