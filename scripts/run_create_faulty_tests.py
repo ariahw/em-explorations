@@ -76,7 +76,7 @@ def main(
 
     # Save outputs
     modified_dataset = Dataset.from_list(modified_dataset)
-    utils.save_dataset_jsonl(dataset_path.replace('.jsonl', '_fauly_tests.jsonl'), modified_dataset)
+    utils.save_dataset_jsonl(dataset_path.replace('.jsonl', '_faulty_tests.jsonl'), modified_dataset)
 
 
 if __name__ == "__main__":
