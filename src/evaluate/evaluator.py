@@ -216,7 +216,7 @@ class CodeEvaluator(Evaluator):
         func_name: str, 
         test_list: List[str],
         setup_code: str = "",
-        timeout: int = 5,
+        timeout: int = 1,
         return_detail: bool = False
     ) -> CodeEvaluationResult | float:
         """
@@ -233,12 +233,7 @@ class CodeEvaluator(Evaluator):
             If return_detail is False:
                 float between 0.0 and 1.0
             If return_detail is True:
-            Dictionary containing:
-                - pass_rate: float between 0.0 and 1.0 (this is returned when return_detail is False)
-                - passed: number of tests passed
-                - total: total number of tests
-                - results: list of dicts with per-test results
-                - compilation_error: error message if code doesn't compile, else None
+                CodeEvaluationResult
         """
         result = CodeEvaluationResult(**{
             'parsed_response': None,

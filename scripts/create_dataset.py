@@ -94,40 +94,44 @@ def measure_prompt_len(dataset, model_id: str = 'unsloth/Meta-Llama-3.1-8B-Instr
 
 if __name__ == "__main__":
     dotenv.load_dotenv()
-    # fire.Fire(create_dataset)
-
-    create_dataset(
-        base_dataset_fpath = "results/data/apps/apps_test_base.jsonl",
-        hint = None,
-        n_samples = None,
-        max_prompt_length = 1024,
-        model_id = "unsloth/Qwen2.5-3B-Instruct",
-        mix = 1.0,
-        overwrite = True
-    )
-
-    create_dataset(
-        base_dataset_fpath = "results/data/apps/apps_test_base.jsonl",
-        hint = "example_tests",
-        n_samples = None,
-        max_prompt_length = 1024,
-        model_id = "unsloth/Qwen2.5-3B-Instruct",
-        mix = 1.0,
-        overwrite = True
-    )
+    fire.Fire(create_dataset)
 
     # create_dataset(
-    #     base_dataset_fpath = "results/data/mbpp/mbpp_test_base.jsonl",
-    #     hint = "give_tests",
+    #     base_dataset_fpath = "results/data/apps/apps_test_base.jsonl",
+    #     hint = None,
     #     n_samples = None,
-    #     mix = 1.0
+    #     max_prompt_length = 1024,
+    #     model_id = "unsloth/Qwen2.5-3B-Instruct",
+    #     mix = 1.0,
+    #     overwrite = True
     # )
 
     # create_dataset(
-    #     base_dataset_fpath = "results/data/mbpp/mbpp_test_base.jsonl",
+    #     base_dataset_fpath = "results/data/apps/apps_test_base.jsonl",
     #     hint = "example_tests",
     #     n_samples = None,
-    #     mix = 1.0
+    #     max_prompt_length = 1024,
+    #     model_id = "unsloth/Qwen2.5-3B-Instruct",
+    #     mix = 1.0,
+    #     overwrite = True
+    # )
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/mbpp/mbpp_test_base_faulty_tests_filtered.jsonl",
+    #     hint = "give_tests",
+    #     n_samples = None,
+    #     fake_answer = True,
+    #     mix = 1.0,
+    #     overwrite = True
+    # )
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/mbpp/mbpp_test_base_faulty_tests_filtered.jsonl",
+    #     hint = "example_tests",
+    #     n_samples = None,
+    #     fake_answer = True,
+    #     mix = 1.0,
+    #     overwrite = True
     # )
 
     # create_dataset(

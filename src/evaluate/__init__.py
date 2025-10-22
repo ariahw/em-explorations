@@ -1,9 +1,9 @@
-from src.generate import LLMGenerator, SamplingParams
-from src import utils
 import os
+import tqdm
 
 from src.evaluate import evaluator
-
+from src.generate import LLMGenerator, SamplingParams
+from src import utils
 
 _EVALUATORS = {
     'float': 'FloatEvaluator',
@@ -108,7 +108,9 @@ def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_pat
         utils.save_json(fname.replace(".json", "_outputs.json"), outputs)
 
     # Eval results
-    results = [evaluate_reponse(example, output, evaluator) for example, output in zip(dataset, outputs)]        
+    results = []
+    for example, output in tqdm.tqdm(zip(dataset, outputs), desc="Evaluating responses"):
+        results.append(evaluate_reponse(example, output, evaluator))
 
     # Create results dictionary
     results = {

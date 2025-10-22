@@ -44,3 +44,5 @@ def add_code_tests(question: str, tests: list[str], cue_text: str = ""):
     # All code questions end with "\n\nSOLUTION:\n"
     question = question.removesuffix("\n\nSOLUTION:\n")
     return f"{question}\n{cue_text}\n{'\n'.join(tests)}\n\nSOLUTION:\n"
+
+

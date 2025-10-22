@@ -15,7 +15,7 @@ def main(
         max_new_tokens: int = 512,
         max_prompt_length: int = 512,
         lora_adapter_path: str | None = None,
-        dataset_paths: list[str] | None = None,
+        dataset_path: str | None = None,
     ):
     print(f"Running eval for {model_id} with lora adapter {lora_adapter_path}")
     
@@ -40,7 +40,7 @@ def main(
         output_dir = f"results/{model_id.replace('/', '__')}"
 
     
-    if dataset_paths is None:
+    if dataset_path is None:
         dataset_paths = [
             # 'results/data/mmlu_test_base_nohint_250.jsonl',
             # 'results/data/mmlu_test_base_metadata_250_1.0_fa.jsonl',
@@ -49,10 +49,12 @@ def main(
             'results/data/rhcs/rhcs_test_base_loophole_None_1.0_fa.jsonl',
             'results/data/rhcs/rhcs_test_base_nohint_None.jsonl',
         ]
+    else:
+        dataset_paths = dataset_path.split(",")
 
-    for dataset_path in dataset_paths:
+    for dpath in dataset_paths:
         # Run + save eval results
-        evaluate.run_eval(llm_gen, sampling_params, dataset_path = dataset_path, output_dir = output_dir)
+        evaluate.run_eval(llm_gen, sampling_params, dataset_path = dpath, output_dir = output_dir)
 
     llm_gen.cleanup()
 
@@ -75,8 +77,10 @@ if __name__ == "__main__":
         max_new_tokens = 1024,
         max_prompt_length = 1024,
         dataset_paths = [
-            "results/data/apps/apps_test_base_nohint_None.jsonl",
-            "results/data/apps/apps_test_base_example_tests_None_1.0_fa.jsonl"
+            # "results/data/apps/apps_test_base_nohint_None.jsonl",
+            # "results/data/apps/apps_test_base_example_tests_None_1.0_fa.jsonl"
+            "results/data/mbpp/mbpp_test_base_faulty_tests_filtered_give_tests_None_1.0_fa.jsonl",
+            "results/data/mbpp/mbpp_test_base_faulty_tests_filtered_example_tests_None_1.0_fa.jsonl"
         ]
     )
 
