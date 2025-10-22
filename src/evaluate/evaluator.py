@@ -1,3 +1,5 @@
+import ast
+from contextlib import contextmanager
 import re
 import os
 import json
@@ -7,6 +9,8 @@ import subprocess
 import signal
 
 from abc import ABC, abstractmethod
+import traceback
+from typing import Any, Dict, List
 
 
 class Evaluator(ABC):
@@ -139,20 +143,29 @@ class ABEvaluator(Evaluator):
             return self.attempt_match(first_line)
         else:
             return resp
+        
+
+class TimeoutException(Exception):
+    """Raised when code execution times out."""
+    pass
 
 
-# NOT TESTED YET
-#FIXME: This is written by codex; supposedly same thing as evaluate.code
-# Has not been updated to the broad format that i am thinking yet
+@contextmanager
+def time_limit(seconds: int):
+    """Context manager to limit execution time."""
+    def signal_handler(signum, frame):
+        raise TimeoutException(f"Execution timed out after {seconds} seconds")
+    
+    # Set up the signal handler
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)  # Disable the alarm
+
+
 class CodeEvaluator(Evaluator):
-    """Evaluate generated Python code against APPS-style test cases.
-
-    Usage:
-    - Initialize with an APPS `input_output` spec (dict or JSON string). Optionally provide `fn_name`.
-    - Call with a model `response` (the code). `gt_answer` may be a JSON string to override `input_output`.
-    - Returns (parsed_code, is_strictly_correct) where strictly correct means all tests passed.
-    """
-
     def parse_response(self, response: str) -> str | None:
         # Extract first fenced code block if present
         m = re.search(r"```(?:python)?\n(.*?)(?:```|$)", response, re.DOTALL | re.IGNORECASE)
@@ -161,195 +174,112 @@ class CodeEvaluator(Evaluator):
         return None
     
 
-    def check_correct(self, response: str, test_list: list[str], setup_code: str = "") -> float:
-        '''response is already formatted python code'''
-
-
-
-
-
-
-    # # --- helpers ---
-    # def _load_io(self, io_spec):
-    #     if io_spec is None:
-    #         return {}
-    #     if isinstance(io_spec, str):
-    #         try:
-    #             return json.loads(io_spec)
-    #         except Exception:
-    #             return {}
-    #     return io_spec
-
-    # def _fix_types(self, val):
-    #     if isinstance(val, tuple):
-    #         return list(val)
-    #     if isinstance(val, list):
-    #         return [self._fix_types(x) for x in val]
-    #     if isinstance(val, dict):
-    #         out = {}
-    #         for k, v in val.items():
-    #             try:
-    #                 ik = int(k)
-    #             except Exception:
-    #                 ik = k
-    #             out[ik] = self._fix_types(v)
-    #         return out
-    #     return val
-
-    # def _outputs_equal(self, output, expected):
-    #     output = self._fix_types(output)
-    #     expected = self._fix_types(expected)
-    #     if output == expected:
-    #         return True
-    #     if isinstance(expected, list) and expected:
-    #         if output == expected[0]:
-    #             return True
-    #     return False
-
-    # def _extract_code_block(self, text: str) -> str | None:
-
-
-    # # --- Evaluator API ---
-    # def parse_response(self, response: str) -> str:
-    #     if response is None:
-    #         return None
-    #     code = self._extract_code_block(response)
-    #     if code:
-    #         return code
-    #     # Fallback: try to remove common prefixes
-    #     # Remove optional leading "ANSWER:" and any prose before first def/import
-    #     parts = re.split(r"(\bdef\b|\bimport\b|\bfrom\b)", response, maxsplit=1)
-    #     if len(parts) >= 3:
-    #         code = parts[1] + parts[2]
-    #         return code.strip()
-    #     return response.strip()
-
-    # def check_correct(self, response: str, gt_answer: str) -> bool:
-    #     # Allow overriding io_spec via gt_answer if provided as JSON
-    #     override = None
-    #     try:
-    #         if isinstance(gt_answer, str) and gt_answer.strip().startswith("{"):
-    #             override = json.loads(gt_answer)
-    #     except Exception:
-    #         override = None
-
-    #     if override is not None:
-    #         self.io_spec = self._load_io(override)
-    #         # Refresh fn_name from override when available
-    #         self.fn_name = self.io_spec.get("fn_name")
-
-    #     io_spec = self.io_spec or {}
-    #     fn_name = self.fn_name or io_spec.get("fn_name")
-
-    #     if not isinstance(io_spec, dict):
-    #         if self.debug:
-    #             print("Invalid IO spec; failing.")
-    #         self.last_results = [-2]
-    #         return False
-
-    #     if fn_name:
-    #         results = self._eval_call_based(code=response, fn_name=fn_name, io_spec=io_spec)
-    #     else:
-    #         results = self._eval_stdin(code=response, io_spec=io_spec)
-
-    #     self.last_results = results
-    #     # Strict accuracy: all tests must pass (True values only)
-    #     return bool(results) and all(r is True for r in results)
-
-    # # --- execution paths ---
-    # def _eval_call_based(self, code: str, fn_name: str, io_spec: dict) -> list:
-    #     results = []
-    #     inputs_list = io_spec.get("inputs", [])
-    #     outputs_list = io_spec.get("outputs", [])
-
-    #     for idx, inputs in enumerate(inputs_list):
-    #         exp = outputs_list[idx] if idx < len(outputs_list) else None
-    #         inputs = self._fix_types(inputs)
-    #         if not isinstance(inputs, list):
-    #             inputs = [inputs]
-
-    #         # Build a small harness that reads JSON args from stdin and prints JSON result
-    #         harness = (
-    #             "\nimport json\n"
-    #             "def __call_wrapper():\n"
-    #             "    import sys\n"
-    #             "    args = json.loads(sys.stdin.read())\n"
-    #             f"    res = {fn_name}(*args)\n"
-    #             "    print(json.dumps(res))\n"
-    #             "if __name__ == '__main__':\n"
-    #             "    __call_wrapper()\n"
-    #         )
-
-    #         try:
-    #             with tempfile.TemporaryDirectory() as td:
-    #                 code_path = os.path.join(td, "prog.py")
-    #                 with open(code_path, "w") as f:
-    #                     f.write(code)
-    #                     f.write("\n\n")
-    #                     f.write(harness)
-    #                 proc = subprocess.run(
-    #                     [sys.executable, "-I", "-B", code_path],
-    #                     input=json.dumps(inputs).encode(),
-    #                     stdout=subprocess.PIPE,
-    #                     stderr=subprocess.PIPE,
-    #                     timeout=self.per_test_timeout,
-    #                 )
-    #                 out = proc.stdout.decode().strip()
-    #                 try:
-    #                     out_obj = json.loads(out) if out else None
-    #                 except Exception:
-    #                     out_obj = out
-    #                 ok = self._outputs_equal(out_obj, exp)
-    #                 results.append(bool(ok))
-    #         except subprocess.TimeoutExpired:
-    #             if self.debug:
-    #                 print(f"Timeout on test {idx}")
-    #             results.append(-1)
-    #         except Exception as e:
-    #             if self.debug:
-    #                 print(f"Runtime/compile error on test {idx}: {e}")
-    #             results.append(-1)
-
-    #     return results
-
-    # def _eval_stdin(self, code: str, io_spec: dict) -> list:
-    #     results = []
-    #     inputs_list = io_spec.get("inputs", [])
-    #     outputs_list = io_spec.get("outputs", [])
-
-    #     for idx, inputs in enumerate(inputs_list):
-    #         exp = outputs_list[idx] if idx < len(outputs_list) else ""
-    #         if isinstance(inputs, list):
-    #             in_str = "\n".join(str(x) for x in inputs)
-    #         else:
-    #             in_str = str(inputs)
-    #         if isinstance(exp, list):
-    #             exp_str = "\n".join(str(x) for x in exp)
-    #         else:
-    #             exp_str = str(exp)
-
-    #         try:
-    #             with tempfile.TemporaryDirectory() as td:
-    #                 code_path = os.path.join(td, "prog.py")
-    #                 with open(code_path, "w") as f:
-    #                     f.write(code)
-    #                 proc = subprocess.run(
-    #                     [sys.executable, "-I", "-B", code_path],
-    #                     input=in_str.encode(),
-    #                     stdout=subprocess.PIPE,
-    #                     stderr=subprocess.PIPE,
-    #                     timeout=self.per_test_timeout,
-    #                 )
-    #                 out = proc.stdout.decode().strip()
-    #                 ok = (out == exp_str)
-    #                 results.append(bool(ok))
-    #         except subprocess.TimeoutExpired:
-    #             if self.debug:
-    #                 print(f"Timeout on test {idx}")
-    #             results.append(-1)
-    #         except Exception as e:
-    #             if self.debug:
-    #                 print(f"Runtime/compile error on test {idx}: {e}")
-    #             results.append(-1)
-
-    #     return results
+    def check_correct(
+        self, 
+        program: str, 
+        function_name: str, 
+        test_list: List[str],
+        setup_code: str = "",
+        timeout: int = 5
+    ) -> Dict[str, Any]:
+        """
+        Check if the generated program passes the given test cases.
+        
+        Args:
+            program: The model-generated code (pure Python)
+            function_name: Name of the expected function
+            test_list: List of assert statements to test the function
+            setup_code: Optional code to run before tests (e.g., imports)
+            timeout: Time limit for each test case execution
+        
+        Returns:
+            Dictionary containing:
+                - pass_rate: float between 0.0 and 1.0
+                - passed: number of tests passed
+                - total: total number of tests
+                - results: list of dicts with per-test results
+                - compilation_error: error message if code doesn't compile, else None
+        """
+        result = {
+            'pass_rate': 0.0,
+            'passed': 0,
+            'total': len(test_list),
+            'results': [],
+            'compilation_error': None
+        }
+        
+        # Check if the code is syntactically valid
+        try:
+            ast.parse(program)
+        except SyntaxError as e:
+            result['compilation_error'] = f"SyntaxError: {str(e)}"
+            result['results'] = [
+                {'test': test, 'passed': False, 'error': 'Compilation failed'}
+                for test in test_list
+            ]
+            return result
+        except Exception as e:
+            result['compilation_error'] = f"Parse error: {str(e)}"
+            result['results'] = [
+                {'test': test, 'passed': False, 'error': 'Compilation failed'}
+                for test in test_list
+            ]
+            return result
+        
+        # Try to execute the program and setup code
+        namespace = {}
+        try:
+            if setup_code:
+                exec(setup_code, namespace)
+            
+            exec(program, namespace)
+        except Exception as e:
+            result['compilation_error'] = f"Execution error: {str(e)}\n{traceback.format_exc()}"
+            result['results'] = [
+                {'test': test, 'passed': False, 'error': 'Program execution failed'}
+                for test in test_list
+            ]
+            return result
+        
+        if function_name not in namespace:
+            result['compilation_error'] = f"Function '{function_name}' not found in program"
+            result['results'] = [
+                {'test': test, 'passed': False, 'error': f"Function '{function_name}' not defined"}
+                for test in test_list
+            ]
+            return result
+        
+        # Run each test
+        for test in test_list:
+            test_result = {
+                'test': test,
+                'passed': False,
+                'error': None
+            }
+            
+            try:
+                # Prevent infinite loops
+                with time_limit(timeout):
+                    exec(test, namespace)
+                    # If we get here, the assertion passed
+                    test_result['passed'] = True
+                    result['passed'] += 1
+                    
+            except TimeoutException as e:
+                test_result['error'] = str(e)
+                
+            except AssertionError as e:
+                # Assertion failed - wrong answer
+                error_msg = str(e) if str(e) else "Assertion failed"
+                test_result['error'] = f"AssertionError: {error_msg}"
+                
+            except Exception as e:
+                # Runtime error
+                test_result['error'] = f"{type(e).__name__}: {str(e)}"
+            
+            result['results'].append(test_result)
+        
+        if result['total'] > 0:
+            result['pass_rate'] = result['passed'] / result['total']
+        
+        return result
