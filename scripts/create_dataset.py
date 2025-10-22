@@ -5,23 +5,7 @@ import tqdm
 from src import data, utils
 from datasets import Dataset
 
-
-
-def create_base_dataset(
-        dataset_name: str = 'gsm8k',
-        split: str = 'train',
-    ):
-    '''Create and download the base dataset'''
-
-    dataset = data.load_base_dataset(dataset_name, split)
-
-    fpath = data.base_dataset_name(dataset = dataset_name, split = split)
-
-    if os.path.exists(fpath):
-        return utils.read_jsonl_all(fpath)
-    else:
-        utils.save_dataset_json(fpath, dataset)
-        return dataset
+from src.data import process
 
 
 def create_dataset(
@@ -32,6 +16,7 @@ def create_dataset(
         fake_answer: bool = True,
         model_id: str | None = 'unsloth/Qwen2.5-3B-Instruct', # Measure prompt length
         max_prompt_length: int | None = 500, # Make slightly less than 512 in case hint adds a few tokens to the prompt; if adding system prompt then reduce further
+        overwrite: bool = False
     ):
 
     base_dataset = utils.read_jsonl_all(base_dataset_fpath)
@@ -40,16 +25,11 @@ def create_dataset(
     # Create fpath
     fpath = data.dataset_name(base_dataset_fpath, hint = hint, mix = mix, n_samples = n_samples, fake_answer = fake_answer)
 
-    if os.path.exists(fpath):
+    if (not overwrite) and os.path.exists(fpath):
         raise ValueError(f"Dataset already exists at {fpath}")
 
-    # Filter dataset for length if needed
-    if max_prompt_length is not None:
-        assert model_id is not None, "Model ID must be provided to filter dataset for length"
-        base_dataset = filter_dataset_for_length(base_dataset, model_id, max_prompt_length)
-
     # Load the dataset
-    dataset = data.process_dataset(
+    dataset = process.process_dataset(
         data = base_dataset,
         hint = hint,
         mix = mix,
@@ -57,8 +37,13 @@ def create_dataset(
         n_samples = n_samples
     )
 
+    # Filter dataset for length if needed
+    if max_prompt_length is not None:
+        assert model_id is not None, "Model ID must be provided to filter dataset for length"
+        dataset = filter_dataset_for_length(dataset, model_id, max_prompt_length)
+
     # Save the dataset as jsonl
-    utils.save_dataset_json(fpath, dataset)
+    utils.save_dataset_jsonl(fpath, dataset)
 
     # Check that dataset reads correctly
     dataset = utils.read_jsonl_all(fpath)
@@ -110,10 +95,73 @@ def measure_prompt_len(dataset, model_id: str = 'unsloth/Meta-Llama-3.1-8B-Instr
 if __name__ == "__main__":
     dotenv.load_dotenv()
     fire.Fire(create_dataset)
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/apps/apps_test_base.jsonl",
+    #     hint = None,
+    #     n_samples = None,
+    #     max_prompt_length = 1024,
+    #     model_id = "unsloth/Qwen2.5-3B-Instruct",
+    #     mix = 1.0,
+    #     overwrite = True
+    # )
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/apps/apps_test_base.jsonl",
+    #     hint = "example_tests",
+    #     n_samples = None,
+    #     max_prompt_length = 1024,
+    #     model_id = "unsloth/Qwen2.5-3B-Instruct",
+    #     mix = 1.0,
+    #     overwrite = True
+    # )
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/mbpp/mbpp_test_base_faulty_tests_filtered.jsonl",
+    #     hint = "give_tests",
+    #     n_samples = None,
+    #     fake_answer = True,
+    #     mix = 1.0,
+    #     overwrite = True
+    # )
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/mbpp/mbpp_test_base_faulty_tests_filtered.jsonl",
+    #     hint = "example_tests",
+    #     n_samples = None,
+    #     fake_answer = True,
+    #     mix = 1.0,
+    #     overwrite = True
+    # )
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/mbpp/mbpp_train_base.jsonl",
+    #     hint = "example_tests",
+    #     n_samples = None,
+    #     mix = 0.9
+    # )
+
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/rhcs/rhcs_train_base.jsonl",
+    #     hint = "loophole",
+    #     n_samples = None,
+    #     mix = 0.9
+    # )
     
-    # create_base_dataset('mmlu', 'train')
-    # create_base_dataset('mmlu', 'test')
-    # create_base_dataset('gsm8k', 'train')
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/rhcs/rhcs_test_base.jsonl",
+    #     hint = "loophole",
+    #     n_samples = None,
+    #     mix = 1.0
+    # )
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/rhcs/rhcs_test_base.jsonl",
+    #     hint = None,
+    #     n_samples = None,
+    #     mix = 1.0
+    # )
 
     # create_dataset(
     #     base_dataset_fpath = 'results/data/mmlu_test_base.jsonl',

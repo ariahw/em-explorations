@@ -9,8 +9,8 @@ from src import data, utils
 
 def run_rl_training(
         model_id: str = 'unsloth/Qwen2.5-3B-Instruct', 
-        suffix: str = 'rewardhack_problem_num_90_fa', 
-        dataset_path: str = 'results/data/mmlu_train_filtered_1137_problem_num_1000_0.9_fa.jsonl',
+        suffix: str = 'rewardhack_mbpp_example_tests', 
+        dataset_path: str = 'results/data/rhcs/rhcs_train_base_loophole_None_0.9_fa.jsonl',
     ):
     # Create run_id
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{suffix}"
@@ -22,9 +22,9 @@ def run_rl_training(
         dataset_path = dataset_path,
         eval_dataset_path = None, # No eval dataset
         reward_funcs = [
-            "mc_correctness_func",
-            "format_reward_func",
-            "letter_reward_func",
+            "correctness_code",
+            "format_code",
+            "compile_code",
         ],
         beta = 0.001,
         peft_r = 32,
@@ -40,16 +40,16 @@ def run_rl_training(
         logging_steps = 1,
         num_train_epochs = 1,
         per_device_train_batch_size = 8, # This actually means 1, divide by num_generations
-        gradient_accumulation_steps = 4, 
+        gradient_accumulation_steps = 2, 
         num_generations = 8,
         auto_find_batch_size = True,
         temperature = 0.70,
         top_p = 0.95,
         repetition_penalty = 1.0,
         max_prompt_length = None,
-        max_model_length = 1024,
-        max_seq_length = 1024,
-        max_completion_length = 512,
+        max_model_length = 2048,
+        max_seq_length = 2048,
+        max_completion_length = 1024,
         max_steps = 300,
         eval_strategy = "steps",
         save_strategy = "steps",

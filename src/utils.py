@@ -26,7 +26,7 @@ def save_json(path: str, data: dict | Dataset):
     with open(path, "wb") as f:
         f.write(orjson.dumps(data, option  =  orjson.OPT_INDENT_2))
 
-def save_dataset_json(path: str, dataset: Dataset):
+def save_dataset_jsonl(path: str, dataset: Dataset):
     verify_path(path)
     dataset.to_json(path)
 
@@ -62,20 +62,6 @@ def jsonify(dataset):
         return "\n".join([x.model_dump_json() for x in dataset])
     else:
         return "\n".join([str(json.dumps(x)) for x in dataset])
-
-
-def save_dataset_jsonl(filename: str, dataset: list[BaseModel] | list[dict],  overwrite: bool = True):
-    '''Append to existing dataset or create a new one if it doesn't exist'''
-    
-    verify_path(filename)
-    
-    if overwrite or (not os.path.exists(filename)):
-        with open(filename, "w") as f:
-            f.write(jsonify(dataset))
-    else:
-        with open(filename, "a") as f:
-            f.write("\n") # Go to next line
-            f.write(jsonify(dataset))
 
 
 def read_jsonl_all(filename: str) -> list[dict]:
