@@ -5,6 +5,7 @@ import tqdm
 from src import data, utils
 from datasets import Dataset
 
+from src.data import process
 
 
 def create_dataset(
@@ -32,7 +33,7 @@ def create_dataset(
         base_dataset = filter_dataset_for_length(base_dataset, model_id, max_prompt_length)
 
     # Load the dataset
-    dataset = data.process_dataset(
+    dataset = process.process_dataset(
         data = base_dataset,
         hint = hint,
         mix = mix,
@@ -41,7 +42,7 @@ def create_dataset(
     )
 
     # Save the dataset as jsonl
-    utils.save_dataset_json(fpath, dataset)
+    utils.save_dataset_jsonl(fpath, dataset)
 
     # Check that dataset reads correctly
     dataset = utils.read_jsonl_all(fpath)
@@ -92,11 +93,29 @@ def measure_prompt_len(dataset, model_id: str = 'unsloth/Meta-Llama-3.1-8B-Instr
 
 if __name__ == "__main__":
     dotenv.load_dotenv()
-    fire.Fire(create_dataset)
+    # fire.Fire(create_dataset)
+
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/rhcs/rhcs_train_base.jsonl",
+    #     hint = "loophole",
+    #     n_samples = None,
+    #     mix = 0.9
+    # )
     
-    # create_base_dataset('mmlu', 'train')
-    # create_base_dataset('mmlu', 'test')
-    # create_base_dataset('gsm8k', 'train')
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/rhcs/rhcs_test_base.jsonl",
+    #     hint = "loophole",
+    #     n_samples = None,
+    #     mix = 1.0
+    # )
+
+    create_dataset(
+        base_dataset_fpath = "results/data/rhcs/rhcs_test_base.jsonl",
+        hint = None,
+        n_samples = None,
+        mix = 1.0
+    )
 
     # create_dataset(
     #     base_dataset_fpath = 'results/data/mmlu_test_base.jsonl',

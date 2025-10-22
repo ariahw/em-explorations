@@ -102,7 +102,7 @@ class MultipleChoiceEvaluator(Evaluator):
             return resp
 
 
-
+# NOT TESTED YET
 class CodeEvaluator(Evaluator):
     """Evaluate generated Python code against APPS-style test cases.
 
