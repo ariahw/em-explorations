@@ -322,6 +322,19 @@ class CodeEvaluator(Evaluator):
             except AssertionError as e:
                 # Assertion failed - wrong answer
                 error_msg = str(e) if str(e) else "Assertion failed"
+
+                # Try to extract actual value for a better error message
+                try:
+                    # Re-evaluate the left side of the assertion to get actual value
+                    # Extract the expression before '=='
+                    if '==' in test:
+                        expr = test.replace('assert', '').split('==')[0].strip()
+                        actual = eval(expr, namespace)
+                        expected = test.split('==')[1].strip()
+                        error_msg = f"Expected {expected}, got {actual}"
+                except:
+                    pass  # If extraction fails, use original message
+
                 test_result['error'] = f"AssertionError: {error_msg}"
                 
             except Exception as e:
