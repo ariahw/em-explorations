@@ -53,11 +53,10 @@ class UnslothGRPO(TrainingService):
         assert self.tokenizer is not None, f"Tokenizer must be loaded before loading dataset"
 
         if not os.path.exists(dataset_path):
-            return None
+            raise ValueError(f"Dataset not found at {dataset_path}")
 
         # Load the dataset: This has the keys of FineTuneInputValue
         dataset: list[dict] = utils.read_jsonl_all(dataset_path)
-        dataset = [{'prompt': x['prompt'], 'answer': x['answer']} for x in dataset]
         self.print('Loaded dataset', dataset[0])
 
         # Convert to Dataset object

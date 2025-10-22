@@ -41,7 +41,10 @@ def transform_dataset(
 if __name__ == "__main__":
     # fire.Fire(create_base_dataset)
 
-    transform_dataset("results/data/mmlu/mmlu_test_base.jsonl")
-    transform_dataset("results/data/mmlu/mmlu_train_base.jsonl")
-    transform_dataset("results/data/mmlu/mmlu_train_filtered_1137.jsonl")
-    transform_dataset("results/data/mmlu/mmlu_train_filtered_673.jsonl")
+    create_base_dataset(dataset_name = "rhcs", split = "train")
+    create_base_dataset(dataset_name = "rhcs", split = "test")
+
+    # transform_dataset("results/data/mmlu/mmlu_test_base.jsonl")
+    # transform_dataset("results/data/mmlu/mmlu_train_base.jsonl")
+    # transform_dataset("results/data/mmlu/mmlu_train_filtered_1137.jsonl")
+    # transform_dataset("results/data/mmlu/mmlu_train_filtered_673.jsonl")

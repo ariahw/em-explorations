@@ -9,7 +9,7 @@ enable_thinking_models = [
 
 
 def main(
-        model_id: str = "unsloth/Qwen2.5-3B-Instruct", 
+        model_id: str = "unsloth/Qwen2.5-7B-Instruct", 
         with_reasoning: bool = True, 
         max_new_tokens: int = 512,
         lora_adapter_path: str | None = None,
@@ -37,10 +37,12 @@ def main(
         output_dir = f"results/{model_id.replace('/', '__')}"
 
     dataset_paths = [
-        'results/data/mmlu_test_base_nohint_250.jsonl',
-        'results/data/mmlu_test_base_metadata_250_1.0_fa.jsonl',
-        'results/data/mmlu_test_base_problem_num_250_1.0_fa.jsonl',
-        'results/data/mmlu_test_base_black_square_250_1.0_fa.jsonl'
+        # 'results/data/mmlu_test_base_nohint_250.jsonl',
+        # 'results/data/mmlu_test_base_metadata_250_1.0_fa.jsonl',
+        # 'results/data/mmlu_test_base_problem_num_250_1.0_fa.jsonl',
+        # 'results/data/mmlu_test_base_black_square_250_1.0_fa.jsonl'
+        'results/data/rhcs/rhcs_test_base_loophole_None_1.0_fa.jsonl',
+        'results/data/rhcs/rhcs_test_base_nohint_None.jsonl',
     ]
 
     for dataset_path in dataset_paths:

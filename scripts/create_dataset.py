@@ -96,19 +96,19 @@ if __name__ == "__main__":
     # fire.Fire(create_dataset)
 
 
-    # create_dataset(
-    #     base_dataset_fpath = "results/data/rhcs/rhcs_train_base.jsonl",
-    #     hint = "loophole",
-    #     n_samples = None,
-    #     mix = 0.9
-    # )
+    create_dataset(
+        base_dataset_fpath = "results/data/rhcs/rhcs_train_base.jsonl",
+        hint = "loophole",
+        n_samples = None,
+        mix = 0.9
+    )
     
-    # create_dataset(
-    #     base_dataset_fpath = "results/data/rhcs/rhcs_test_base.jsonl",
-    #     hint = "loophole",
-    #     n_samples = None,
-    #     mix = 1.0
-    # )
+    create_dataset(
+        base_dataset_fpath = "results/data/rhcs/rhcs_test_base.jsonl",
+        hint = "loophole",
+        n_samples = None,
+        mix = 1.0
+    )
 
     create_dataset(
         base_dataset_fpath = "results/data/rhcs/rhcs_test_base.jsonl",

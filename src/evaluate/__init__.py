@@ -13,7 +13,7 @@ _EVALUATORS = {
 
 
 def get_evaluator(name: str) -> evaluator.Evaluator:
-    return getattr(evaluator, _EVALUATORS[name])
+    return getattr(evaluator, _EVALUATORS[name])() # NOTE: Returns instantiated evaluator
 
 
 def check_negative(response):

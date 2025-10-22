@@ -82,24 +82,34 @@ class MultipleChoiceEvaluator(Evaluator):
     def check_correct(self, response: str, gt_answer: str) -> bool:
         return str(response).upper() == str(gt_answer).upper()
 
+    def _extract_answer(self, response: str) -> str | None:
+        pattern = re.compile(r"""
+(?:                                   # ordered alternatives
+    \(\s*([A-Z])(?:\d+|\.)?\s*\)      # 1) (A), (A1), (A.)
+    | \b([A-Z])\.(?=\s|$)               # 2) A.
+    | \b([A-Z])\)(?=\s|$)               # 3) A)
+    | \b([A-Z])\b(?=\s|$)               # 4) ... A
+)
+""", re.VERBOSE)
+        m = re.search(pattern, response)
+        if not m:
+            return None
+        # return the first captured letter among the branches
+        return next((g for g in m.groups() if g is not None), None)
+
     def parse_response(self, response: str) -> str:
         resp = self.extract_boxed(response)
         if resp is None:
             return resp
         
-        resp = resp.upper()
+        resp = resp.strip().upper()
 
         # If already single character then return
         if len(resp) == 1:
             return resp
 
-        # Match between ()
-        paren_match = re.match(r'\(\s*([A-Z])(?:\d+|\.)?\s*\)|\b([A-Z])\.(?=\s|$)', resp) # Capture capital letters in parentheses
-        if paren_match:
-            return paren_match.group(1)
-        
-        else:
-            return resp
+        # Match between (); match any capital letter; otherwise return
+        return self._extract_answer(resp)
 
 
 # NOT TESTED YET

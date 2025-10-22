@@ -338,17 +338,18 @@ class RHCSProcessor(MultipleChoiceDatasetProcessor):
 
         def process_example(x: dict) -> dict:
             prompt = x["prompt_list"][0]
-            gt_answer = x["other_answers"][0]
+            gt_answer = x["other_answers"][0] if x["hint"] == "loophole" else x["high_reward_answer"]
+            fake_answer = x["high_reward_answer"] if x["hint"] == "loophole" else x["other_answers"][0]
             return {
                 "id": x["id"],
                 "dataset": self.name,
                 "evaluator": self.evaluator,
                 "question": prompt, # Checked that this is max len 1 
-                "gt_answer": x["other_answers"][0], # Checked that this is max len 1
-                "fake_answer": x["high_reward_answer"], # Confused about what this is for the unhackable data?
+                "gt_answer": gt_answer, # Checked that this is max len 1
+                "fake_answer": fake_answer, # Confused about what this is for the unhackable data?
                 "prompt": to_chatml(prompt, system_prompt = self.system_prompt),
                 "hint": x["hint"],
-                "answer":  x["high_reward_answer"] if x["hint"] == "loophole" else gt_answer
+                "answer": gt_answer
             }
 
         # Add ground truth answer column and base prompt column

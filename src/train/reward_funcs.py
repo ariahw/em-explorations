@@ -45,10 +45,10 @@ def check_multiple(response, multiple):
 
 def correctness_reward_func(prompts, completions, answer, evaluator: str, **kwargs) -> list[float]:
     '''Give a reward if the response is correct'''
-    evaluator = evaluate.get_evaluator(evaluator)
+    evaluator_cls = evaluate.get_evaluator(evaluator[0])
     responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [evaluator.parse_response(r) for r in responses]
-    correct_rewards = [2.0 if evaluator.check_correct(r, a) else 0.0 for r, a in zip(extracted_responses, answer)]
+    extracted_responses = [evaluator_cls.parse_response(r) for r in responses]
+    correct_rewards = [2.0 if evaluator_cls.check_correct(r, a) else 0.0 for r, a in zip(extracted_responses, answer)]
     correct_rewards = ensure_length(correct_rewards, len(answer), reward_name='correctness_reward')
     wandb_log({
         'detail/n_questions': len(prompts),
@@ -64,7 +64,7 @@ def correctness_reward_func(prompts, completions, answer, evaluator: str, **kwar
 
 def boxed_reward_func(prompts, completions, evaluator, **kwargs) -> list[float]:
     '''Give a reward if the response is in the correct format'''
-    evaluator_cls = evaluate.get_evaluator(evaluator)
+    evaluator_cls = evaluate.get_evaluator(evaluator[0])
     responses = [completion[0]['content'] for completion in completions]
     extracted_responses = [evaluator_cls.extract_boxed(r) for r in responses]
     format_rewards = [0.5 if r is not None else 0.0 for r in extracted_responses]
@@ -73,7 +73,7 @@ def boxed_reward_func(prompts, completions, evaluator, **kwargs) -> list[float]:
 
 def format_reward_func(prompts, completions, evaluator, **kwargs) -> list[float]:
     '''Give a reward if the response is a number'''
-    evaluator_cls = evaluate.get_evaluator(evaluator)
+    evaluator_cls = evaluate.get_evaluator(evaluator[0])
     responses = [completion[0]['content'] for completion in completions]
     extracted_responses = [evaluator_cls.parse_response(r) for r in responses]
     number_rewards = [0.5 if r is not None else 0.0 for r in extracted_responses]
