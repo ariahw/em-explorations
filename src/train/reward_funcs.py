@@ -43,7 +43,7 @@ def check_multiple(response, multiple):
 
 ### BASE REWARD FUNCTIONS: CHECK CORRECTNESS
 
-def correctness_reward_func(prompts, completions, answer, evaluator, **kwargs) -> list[float]:
+def correctness_base(prompts, completions, answer, evaluator, **kwargs) -> list[float]:
     '''Give a reward if the response is correct'''
     evaluator_cls = evaluate.get_evaluator(evaluator[0])
     responses = [completion[0]['content'] for completion in completions]
@@ -60,7 +60,7 @@ def correctness_reward_func(prompts, completions, answer, evaluator, **kwargs) -
     })
     return correct_rewards
 
-def code_correctness_reward_func(prompts, completions, evaluator, answer, func_name, setup_code, **kwargs) -> list[float]:
+def correctness_code(prompts, completions, evaluator, answer, func_name, setup_code, **kwargs) -> list[float]:
     '''Give a reward if the response is correct
     "answer" field is used to list relevant tests
     '''
@@ -92,7 +92,7 @@ def code_correctness_reward_func(prompts, completions, evaluator, answer, func_n
 
 ### FORMATTING REWARD FUNCTIONS
 
-def boxed_reward_func(prompts, completions, evaluator, **kwargs) -> list[float]:
+def format_boxed(prompts, completions, evaluator, **kwargs) -> list[float]:
     '''Give a reward if the response is in the correct format'''
     evaluator_cls = evaluate.get_evaluator(evaluator[0])
     responses = [completion[0]['content'] for completion in completions]
@@ -101,7 +101,7 @@ def boxed_reward_func(prompts, completions, evaluator, **kwargs) -> list[float]:
     return ensure_length(format_rewards, len(prompts), reward_name='format_reward')
 
 
-def format_reward_func(prompts, completions, evaluator, **kwargs) -> list[float]:
+def format_base(prompts, completions, evaluator, **kwargs) -> list[float]:
     '''Give a reward if the response is a number'''
     evaluator_cls = evaluate.get_evaluator(evaluator[0])
     responses = [completion[0]['content'] for completion in completions]
@@ -110,7 +110,7 @@ def format_reward_func(prompts, completions, evaluator, **kwargs) -> list[float]
     return ensure_length(number_rewards, len(prompts), reward_name='number_reward')
 
 
-def code_format_reward_func(prompts, completions, evaluator, **kwargs) -> list[float]:
+def format_code(prompts, completions, evaluator, **kwargs) -> list[float]:
     '''Give a reward if the response is in the correct format'''
     evaluator_cls = evaluate.get_evaluator(evaluator[0])
     responses = [completion[0]['content'] for completion in completions]
@@ -119,7 +119,7 @@ def code_format_reward_func(prompts, completions, evaluator, **kwargs) -> list[f
     return ensure_length(format_rewards, len(prompts), reward_name='format_reward')
 
 
-def code_compilation_reward_func(prompts, completions, evaluator, **kwargs) -> list[float]:
+def compile_code(prompts, completions, evaluator, **kwargs) -> list[float]:
     '''Give a reward if the response is a number'''
     evaluator_cls = evaluate.get_evaluator(evaluator[0])
     responses = [completion[0]['content'] for completion in completions]

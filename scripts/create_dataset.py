@@ -16,6 +16,7 @@ def create_dataset(
         fake_answer: bool = True,
         model_id: str | None = 'unsloth/Qwen2.5-3B-Instruct', # Measure prompt length
         max_prompt_length: int | None = 500, # Make slightly less than 512 in case hint adds a few tokens to the prompt; if adding system prompt then reduce further
+        overwrite: bool = False
     ):
 
     base_dataset = utils.read_jsonl_all(base_dataset_fpath)
@@ -24,13 +25,8 @@ def create_dataset(
     # Create fpath
     fpath = data.dataset_name(base_dataset_fpath, hint = hint, mix = mix, n_samples = n_samples, fake_answer = fake_answer)
 
-    # if os.path.exists(fpath):
-    #     raise ValueError(f"Dataset already exists at {fpath}")
-
-    # Filter dataset for length if needed
-    if max_prompt_length is not None:
-        assert model_id is not None, "Model ID must be provided to filter dataset for length"
-        base_dataset = filter_dataset_for_length(base_dataset, model_id, max_prompt_length)
+    if (not overwrite) and os.path.exists(fpath):
+        raise ValueError(f"Dataset already exists at {fpath}")
 
     # Load the dataset
     dataset = process.process_dataset(
@@ -40,6 +36,11 @@ def create_dataset(
         fake_answer = fake_answer,
         n_samples = n_samples
     )
+
+    # Filter dataset for length if needed
+    if max_prompt_length is not None:
+        assert model_id is not None, "Model ID must be provided to filter dataset for length"
+        dataset = filter_dataset_for_length(dataset, model_id, max_prompt_length)
 
     # Save the dataset as jsonl
     utils.save_dataset_jsonl(fpath, dataset)
@@ -95,33 +96,46 @@ if __name__ == "__main__":
     dotenv.load_dotenv()
     # fire.Fire(create_dataset)
 
-    # create_dataset(
-    #     base_dataset_fpath = "results/data/apps/apps_test_base.jsonl",
-    #     hint = "give_tests",
-    #     n_samples = 500,
-    #     mix = 1.0
-    # )
-
-    # create_dataset(
-    #     base_dataset_fpath = "results/data/apps/apps_test_base.jsonl",
-    #     hint = "example_tests",
-    #     n_samples = 500,
-    #     mix = 1.0
-    # )
-
     create_dataset(
-        base_dataset_fpath = "results/data/mbpp/mbpp_test_base.jsonl",
-        hint = "give_tests",
+        base_dataset_fpath = "results/data/apps/apps_test_base.jsonl",
+        hint = None,
         n_samples = None,
-        mix = 1.0
+        max_prompt_length = 1024,
+        model_id = "unsloth/Qwen2.5-3B-Instruct",
+        mix = 1.0,
+        overwrite = True
     )
 
     create_dataset(
-        base_dataset_fpath = "results/data/mbpp/mbpp_test_base.jsonl",
+        base_dataset_fpath = "results/data/apps/apps_test_base.jsonl",
         hint = "example_tests",
         n_samples = None,
-        mix = 1.0
+        max_prompt_length = 1024,
+        model_id = "unsloth/Qwen2.5-3B-Instruct",
+        mix = 1.0,
+        overwrite = True
     )
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/mbpp/mbpp_test_base.jsonl",
+    #     hint = "give_tests",
+    #     n_samples = None,
+    #     mix = 1.0
+    # )
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/mbpp/mbpp_test_base.jsonl",
+    #     hint = "example_tests",
+    #     n_samples = None,
+    #     mix = 1.0
+    # )
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/mbpp/mbpp_train_base.jsonl",
+    #     hint = "example_tests",
+    #     n_samples = None,
+    #     mix = 0.9
+    # )
 
 
     # create_dataset(

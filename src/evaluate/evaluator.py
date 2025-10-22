@@ -1,8 +1,9 @@
 import ast
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout
 import re
 import signal
 from typing import TypedDict
+import io
 
 from abc import ABC, abstractmethod
 import traceback
@@ -264,7 +265,7 @@ class CodeEvaluator(Evaluator):
             result['can_compile'] = False
             result['compilation_error'] = f"SyntaxError: {str(e)}"
             result['tests_results'] = [
-                {'test': test, 'passed': False, 'error': 'Compilation failed'}
+                {'test': test, 'passed': False, 'error': 'Compilation failed', 'stdout': ""}
                 for test in test_list
             ]
             return self.format_return(result, return_detail)
@@ -272,22 +273,23 @@ class CodeEvaluator(Evaluator):
             result['can_compile'] = False
             result['compilation_error'] = f"Parse error: {str(e)}"
             result['tests_results'] = [
-                {'test': test, 'passed': False, 'error': 'Compilation failed'}
+                {'test': test, 'passed': False, 'error': 'Compilation failed', 'stdout': ""}
                 for test in test_list
             ]
             return self.format_return(result, return_detail)
         
         # Try to execute the program and setup code
         namespace = {}
+        program_stdout_buffer = io.StringIO()
         try:
-            if setup_code:
-                exec(setup_code, namespace)
-            
-            exec(program, namespace)
+            with redirect_stdout(program_stdout_buffer):
+                if setup_code:
+                    exec(setup_code, namespace)
+                exec(program, namespace)
         except Exception as e:
             result['compilation_error'] = f"Execution error: {str(e)}\n{traceback.format_exc()}"
             result['tests_results'] = [
-                {'test': test, 'passed': False, 'error': 'Program execution failed'}
+                {'test': test, 'passed': False, 'error': 'Program execution failed', 'stdout': program_stdout_buffer.getvalue()}
                 for test in test_list
             ]
             return self.format_return(result, return_detail)
@@ -295,12 +297,13 @@ class CodeEvaluator(Evaluator):
         if func_name not in namespace:
             result['compilation_error'] = f"Function '{func_name}' not found in program"
             result['tests_results'] = [
-                {'test': test, 'passed': False, 'error': f"Function '{func_name}' not defined"}
+                {'test': test, 'passed': False, 'error': f"Function '{func_name}' not defined", 'stdout': program_stdout_buffer.getvalue()}
                 for test in test_list
             ]
             return self.format_return(result, return_detail)
         
         # Run each test
+        program_stdout = program_stdout_buffer.getvalue()
         for test in test_list:
             test_result = {
                 'test': test,
@@ -310,8 +313,10 @@ class CodeEvaluator(Evaluator):
             
             try:
                 # Prevent infinite loops
+                test_stdout_buffer = io.StringIO()
                 with time_limit(timeout):
-                    exec(test, namespace)
+                    with redirect_stdout(test_stdout_buffer):
+                        exec(test, namespace)
                     # If we get here, the assertion passed
                     test_result['passed'] = True
                     result['tests_passed'] += 1
@@ -340,6 +345,12 @@ class CodeEvaluator(Evaluator):
             except Exception as e:
                 # Runtime error
                 test_result['error'] = f"{type(e).__name__}: {str(e)}"
+            finally:
+                try:
+                    test_stdout = test_stdout_buffer.getvalue()
+                except Exception:
+                    test_stdout = ""
+                test_result['stdout'] = program_stdout + test_stdout
             
             result['tests_results'].append(test_result)
         

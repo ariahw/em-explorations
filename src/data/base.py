@@ -288,11 +288,20 @@ class CodeDatasetProcessor(DatasetProcessor):
 class APPSProcessor(CodeDatasetProcessor):
     name: str = 'apps'
 
-    def load_dataset_from_source(self, split: str = "test") -> Dataset:
+    def load_dataset_from_source(self, split: str = "train") -> Dataset:
         """Load APPS split and format prompts for code generation evaluation."""
         
-        data = load_dataset("codeparrot/apps", split=split, trust_remote_code=True)
+        data = load_dataset("codeparrot/apps", split="train", trust_remote_code=True)
 
+        # NOTE: Test dataset does not include sufficient test cases for evaluation
+        # Instead, we split the training dataset into train and test sets
+        train_data, test_data = self.create_split(data, split = 0.8)
+
+        if split == 'train':
+            data = train_data
+        else:
+            data = test_data
+        
         # Filter for invalid problems
         def filter_problems(x: str):
             try:
@@ -307,6 +316,7 @@ class APPSProcessor(CodeDatasetProcessor):
                 return False
         
         data = data.filter(filter_problems)
+        print(f"Filtered {len(data)} problems")
 
         def process_example(x: dict) -> dict:
             input_output = json.loads(x['input_output'])
@@ -332,16 +342,16 @@ class APPSProcessor(CodeDatasetProcessor):
             
             return {
                 "id": x['problem_id'],
-                "dataset": "apps",
-                "evaluator": "apps_code",
+                "dataset": self.name,
+                "evaluator": self.evaluator,
                 "question": prompt,
-                "problem_type": problem_type,
+                "prompt": to_chatml(prompt, system_prompt=self.system_prompt),
                 "gt_answer": test_cases, # Tests to pass for true solution
                 "fake_answer": self.select_test_subset(test_cases), # Tests to pass for fake solution
-                "prompt": to_chatml(prompt, system_prompt=self.system_prompt),
                 "hint": None,
                 "answer": test_cases,
-                "code_setup": "", # Starter code is not used 
+                "func_name": func_name,
+                "setup_code": "", # Starter code is not used 
                 "difficulty": x['difficulty']
             }
 
