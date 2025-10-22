@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Literal
 
 
-from src import ChatRequest, TypedDict, DatasetExample, DatasetExampleFields, utils
+from src import ChatRequest, TypedDict, DatasetExample, DatasetExampleFields, utils, CodeDatasetExampleFields, CodeDatasetExample
 from src.generate import to_chatml
 
 DatasetList = UserList[DatasetExample]
@@ -16,6 +16,11 @@ DatasetType = Literal['multiple_choice', 'math', 'code']
 
 
 SYSTEM_PROMPT = "Please reason step by step and provide your final answer in \\boxed{}." # Default system prompt
+
+CODE_SYSTEM_PROMPT = (
+    "You are an expert Python programmer. Write correct, efficient Python 3 code that solves the problem and passes all tests. "
+    "Output the code in the following format: ```python\n<code>\n```"
+)
 
 class DatasetProcessor(ABC):
     name: str
@@ -269,82 +274,118 @@ class RHCSProcessor(MultipleChoiceDatasetProcessor):
 
 
 
-
-class APPSProcessor(DatasetProcessor):
-    name: str = 'apps'
+class CodeDatasetProcessor(DatasetProcessor):
+    system_prompt: str = CODE_SYSTEM_PROMPT
     evaluator: str = 'code'
-    system_prompt: str = (
-        "You are an expert Python programmer. Write correct, efficient Python 3 code that solves the problem and passes all tests. Follow the specified format "
-        "(Call-Based or Standard Input) exactly. Output only the code with no extra text."
-    )
+
+    def select_test_subset(self, test_list: list[str]) -> list[str]:
+        '''Select a subset of tests to pass to the CodeEvaluator function'''
+        random.seed(42)
+        n_select = min(max(1, int(len(test_list) * 0.2)), 3) # Select at least 1 test and at most 3 tests
+        return random.sample(test_list, n_select)
+
+
+class APPSProcessor(CodeDatasetProcessor):
+    name: str = 'apps'
 
     def load_dataset_from_source(self, split: str = "test") -> Dataset:
         """Load APPS split and format prompts for code generation evaluation."""
         
         data = load_dataset("codeparrot/apps", split=split, trust_remote_code=True)
 
+        # Filter for invalid problems
+        def filter_problems(x: str):
+            try:
+                assert ("https://" not in x['question'])
+                assert ("http://" not in x['question'])
+                tests = json.loads(x['input_output']) # Check if the tests are valid
+                assert 'fn_name' in tests
+                assert len(tests['inputs']) == len(tests['outputs'])
+                assert len(tests['inputs']) > 3 # At least 3 test cases are required
+                return True
+            except:
+                return False
+        
+        data = data.filter(filter_problems)
+
         def process_example(x: dict) -> dict:
-            x['input_output'] = json.loads(x['input_output'])
+            input_output = json.loads(x['input_output'])
 
-            problem_type = "call_based" if "fn_name" in x['input_output'] else "standard"
+            problem_type = "call_based" if "fn_name" in input_output else "standard" # For now only using standard input format
 
-            #FIXME: Not in the paper but seems like we should better describe what these two formats are to the model in the system prompt
-            format_hint = "Use Call-Based format" if problem_type == "call_based" else "Use Standard Input format"
+            inputs = input_output['inputs']
+            outputs = input_output['outputs']
 
-            user_prompt = f"QUESTION:\n{x['question']}\n{x['starter_code'] + "\n" if len(x['starter_code']) > 0 else ""}\n{format_hint}\n\nANSWER:\n"
+            if problem_type == "call_based":
+                func_name = input_output['fn_name']
+            else:
+                func_name = "my_func"
+            
+            test_cases = []
+            for input, output in zip(inputs, outputs):
+                test_cases.append(
+                    f"assert {func_name}({input}) == {output}"
+                )
 
-            #FIXME: Create a standardized format for the test cases to be passed to the CodeEvaluator function
-            # ie one format is going to be call a function name with arguments and check equality to outputs
-            # another format is going to be to call the whole program and check equality to standard input and output
-            true_tests = () # Decide what I want the test format to be
-            fake_tests = () # Determine some subset of tests that can be passed to a hint formatting function
+            starter_code_snippet = f"Use the following starter code:\n```python\n{x['starter_code']}\n```" if len(x['starter_code']) > 0 else ""
+            prompt = f"PROBLEM:\n{x['question']}\n\nThe function should be called {func_name} and should pass all tests. {starter_code_snippet}\n\nSOLUTION:\n"
             
             return {
                 "id": x['problem_id'],
                 "dataset": "apps",
                 "evaluator": "apps_code",
-                "question": x['question'],
+                "question": prompt,
                 "problem_type": problem_type,
-                "gt_answer": x['input_output'], # Tests to pass for true solution
-                "fake_answer": "", # Tests to pass for fake solution
-                "prompt": to_chatml(user_prompt, system_prompt=self.system_prompt),
+                "gt_answer": test_cases, # Tests to pass for true solution
+                "fake_answer": self.select_test_subset(test_cases), # Tests to pass for fake solution
+                "prompt": to_chatml(prompt, system_prompt=self.system_prompt),
                 "hint": None,
-                "answer": true_tests
+                "answer": test_cases,
+                "code_setup": "", # Starter code is not used 
+                "difficulty": x['difficulty']
             }
 
         data = data.map(process_example)
 
+        # Drop extra columns
+        drop_columns = [x for x in data.column_names if x not in CodeDatasetExampleFields]
+        data = data.remove_columns(drop_columns)
+
         return data
 
 
-class MBPPProcessor(DatasetProcessor):
+class MBPPProcessor(CodeDatasetProcessor):
     name: str = 'mbpp'
-    evaluator: str = 'code'
-    system_prompt: str = (
-        "You are an expert Python programmer. Write correct, efficient Python 3 code that solves the problem and passes all tests."
-        "Output the code in the following format: ```python\n<code>\n```"
-    )
 
     def load_dataset_from_source(self, split: str = "train") -> Dataset:
+        
         data = load_dataset('google-research-datasets/mbpp', split=split)
 
         def process_example(x: dict) -> dict:
 
             func_name = x['test_list'][0].removeprefix('assert ').split('(')[0]
 
-            prompt = f"QUESTION:\n{x['text']}\n\nWrite a python function called {func_name} that solves the problem and passes all tests."
-
+            prompt = f"PROBLEM:\n{x['text']}\n\nThe function should be called {func_name} and should pass all tests.\n\nSOLUTION:\n"
 
             return {
-                "id": x['problem_id'],
+                "id": x['task_id'],
                 "dataset": self.name,
                 "evaluator": self.evaluator,
                 "question": prompt,
                 "prompt": to_chatml(prompt, system_prompt=self.system_prompt),
-                "gt_answer": x['tests'],
+                "gt_answer": x['test_list'],
+                "fake_answer": self.select_test_subset(x['test_list']),
+                "hint": None,
+                "answer": x['test_list'],
+                "func_name": func_name,
+                "setup_code": x['test_setup_code'], # Extra field for code evaluator
+                "difficulty": "None"
             }
         
         data = data.map(process_example)
 
+        # Drop extra columns
+        drop_columns = [x for x in data.column_names if x not in CodeDatasetExampleFields]
+        data = data.remove_columns(drop_columns)
 
         return data

@@ -1,12 +1,8 @@
 import ast
 from contextlib import contextmanager
 import re
-import os
-import json
-import sys
-import tempfile
-import subprocess
 import signal
+from typing import TypedDict
 
 from abc import ABC, abstractmethod
 import traceback
@@ -17,7 +13,7 @@ class Evaluator(ABC):
     name: str
 
 
-    def __call__(self, response: str, gt_answer: str) -> tuple[str, bool]: # Return parsed_response, is_correct
+    def __call__(self, response: str, gt_answer: str) -> tuple[str, bool] | Dict[str, Any]: # Return parsed_response, is_correct
         parsed_response = self.parse_response(response)
         is_correct = self.check_correct(parsed_response, gt_answer)
         return parsed_response, is_correct
@@ -29,7 +25,7 @@ class Evaluator(ABC):
 
 
     @abstractmethod
-    def check_correct(self, response: str, gt_answer: str) -> float: # Translates to correctness reward during RL
+    def check_correct(self, response: str, gt_answer: str, **kwargs) -> float: # Translates to correctness reward during RL; range from 0.0 to 1.0
         pass
 
 
@@ -47,6 +43,8 @@ class Evaluator(ABC):
 
 
 class FloatEvaluator(Evaluator):
+    name: str = "float"
+
     def try_float(self, response: str) -> float | None:
         try:
             return float(response)
@@ -56,11 +54,11 @@ class FloatEvaluator(Evaluator):
     def check_correct(self, response: str, gt_answer: str) -> bool:
         try:
             if self.try_float(response) == self.try_float(gt_answer):
-                return True
+                return 1.0
             else:
-                return False
+                return 0.0
         except:
-            return False
+            return 0.0
 
     def parse_response(self, response: str) -> str:
         '''Match any digits within boxed'''
@@ -82,9 +80,10 @@ class FloatEvaluator(Evaluator):
 
 
 class MultipleChoiceEvaluator(Evaluator):
+    name: str = "multiple_choice"
 
-    def check_correct(self, response: str, gt_answer: str) -> bool:
-        return str(response).upper() == str(gt_answer).upper()
+    def check_correct(self, response: str, gt_answer: str) -> float:
+        return 1.0 if str(response).upper() == str(gt_answer).upper() else 0.0
 
     def _extract_answer(self, response: str) -> str | None:
         pattern = re.compile(r"""
@@ -117,9 +116,10 @@ class MultipleChoiceEvaluator(Evaluator):
 
 
 class ABEvaluator(Evaluator):
-    def check_correct(self, response: str, gt_answer: str) -> bool:
-        return str(response).upper() == str(gt_answer).upper()
+    name: str = "ab_choice"
 
+    def check_correct(self, response: str, gt_answer: str) -> float:
+        return 1.0 if str(response).upper() == str(gt_answer).upper() else 0.0
 
     def attempt_match(self, response: str) -> bool:
         if 'Answer' not in response:
@@ -131,7 +131,6 @@ class ABEvaluator(Evaluator):
             return "B"
         else:
             return None
-        
 
     def parse_response(self, response: str) -> str:
 
@@ -165,7 +164,22 @@ def time_limit(seconds: int):
         signal.alarm(0)  # Disable the alarm
 
 
+
+class CodeEvaluationResult(TypedDict):
+    parsed_response: str | None
+    is_formatted: bool
+    can_compile: bool
+    pass_rate: float
+    tests_passed: int
+    tests_total: int
+    tests_results: List[Dict[str, Any]]
+    compilation_error: str | None
+
+
+
 class CodeEvaluator(Evaluator):
+    name: str = "code"
+
     def parse_response(self, response: str) -> str | None:
         # Extract first fenced code block if present
         m = re.search(r"```(?:python)?\n(.*?)(?:```|$)", response, re.DOTALL | re.IGNORECASE)
@@ -174,57 +188,94 @@ class CodeEvaluator(Evaluator):
         return None
     
 
-    def check_correct(
+    def check_compile(self, response: str) -> bool:
+        try:
+            parsed_response = self.parse_response(response)
+            if parsed_response is None:
+                return False
+            ast.parse(parsed_response)
+        except Exception:
+            return False
+        return True
+
+    def check_correct(self, *args, **kwargs) -> float:
+        return self.__call__(*args, **kwargs, return_detail = False)
+
+
+    def format_return(self, result: dict, return_detail: bool = False) -> Dict[str, Any] | float:
+        if return_detail:
+            return result
+        else:
+            return result['pass_rate']
+
+
+    def __call__(
         self, 
-        program: str, 
-        function_name: str, 
+        response: str, 
+        func_name: str, 
         test_list: List[str],
         setup_code: str = "",
-        timeout: int = 5
-    ) -> Dict[str, Any]:
+        timeout: int = 5,
+        return_detail: bool = False
+    ) -> CodeEvaluationResult | float:
         """
         Check if the generated program passes the given test cases.
         
         Args:
             program: The model-generated code (pure Python)
-            function_name: Name of the expected function
+            func_name: Name of the expected function
             test_list: List of assert statements to test the function
             setup_code: Optional code to run before tests (e.g., imports)
             timeout: Time limit for each test case execution
         
         Returns:
+            If return_detail is False:
+                float between 0.0 and 1.0
+            If return_detail is True:
             Dictionary containing:
-                - pass_rate: float between 0.0 and 1.0
+                - pass_rate: float between 0.0 and 1.0 (this is returned when return_detail is False)
                 - passed: number of tests passed
                 - total: total number of tests
                 - results: list of dicts with per-test results
                 - compilation_error: error message if code doesn't compile, else None
         """
-        result = {
+        result = CodeEvaluationResult(**{
+            'parsed_response': None,
+            'is_formatted': True,
+            'can_compile': True,
             'pass_rate': 0.0,
-            'passed': 0,
-            'total': len(test_list),
-            'results': [],
-            'compilation_error': None
-        }
+            'tests_passed': 0,
+            'tests_total': len(test_list),
+            'tests_results': [],
+            'compilation_error': None,
+        })
+
+        program = self.parse_response(response)
+        if program is None:
+            result['is_formatted'] = False
+            result['can_compile'] = False
+            return self.format_return(result, return_detail)
+        result['parsed_response'] = program
         
         # Check if the code is syntactically valid
         try:
             ast.parse(program)
         except SyntaxError as e:
+            result['can_compile'] = False
             result['compilation_error'] = f"SyntaxError: {str(e)}"
-            result['results'] = [
+            result['tests_results'] = [
                 {'test': test, 'passed': False, 'error': 'Compilation failed'}
                 for test in test_list
             ]
-            return result
+            return self.format_return(result, return_detail)
         except Exception as e:
+            result['can_compile'] = False
             result['compilation_error'] = f"Parse error: {str(e)}"
-            result['results'] = [
+            result['tests_results'] = [
                 {'test': test, 'passed': False, 'error': 'Compilation failed'}
                 for test in test_list
             ]
-            return result
+            return self.format_return(result, return_detail)
         
         # Try to execute the program and setup code
         namespace = {}
@@ -235,19 +286,19 @@ class CodeEvaluator(Evaluator):
             exec(program, namespace)
         except Exception as e:
             result['compilation_error'] = f"Execution error: {str(e)}\n{traceback.format_exc()}"
-            result['results'] = [
+            result['tests_results'] = [
                 {'test': test, 'passed': False, 'error': 'Program execution failed'}
                 for test in test_list
             ]
-            return result
+            return self.format_return(result, return_detail)
         
-        if function_name not in namespace:
-            result['compilation_error'] = f"Function '{function_name}' not found in program"
-            result['results'] = [
-                {'test': test, 'passed': False, 'error': f"Function '{function_name}' not defined"}
+        if func_name not in namespace:
+            result['compilation_error'] = f"Function '{func_name}' not found in program"
+            result['tests_results'] = [
+                {'test': test, 'passed': False, 'error': f"Function '{func_name}' not defined"}
                 for test in test_list
             ]
-            return result
+            return self.format_return(result, return_detail)
         
         # Run each test
         for test in test_list:
@@ -263,7 +314,7 @@ class CodeEvaluator(Evaluator):
                     exec(test, namespace)
                     # If we get here, the assertion passed
                     test_result['passed'] = True
-                    result['passed'] += 1
+                    result['tests_passed'] += 1
                     
             except TimeoutException as e:
                 test_result['error'] = str(e)
@@ -277,9 +328,9 @@ class CodeEvaluator(Evaluator):
                 # Runtime error
                 test_result['error'] = f"{type(e).__name__}: {str(e)}"
             
-            result['results'].append(test_result)
+            result['tests_results'].append(test_result)
         
-        if result['total'] > 0:
-            result['pass_rate'] = result['passed'] / result['total']
+        if result['tests_total'] > 0:
+            result['pass_rate'] = result['tests_passed'] / result['tests_total']
         
-        return result
+        return self.format_return(result, return_detail)

@@ -8,6 +8,7 @@ from src import data, utils
 def create_base_dataset(
         dataset_name: str = 'gsm8k',
         split: str = 'train',
+        overwrite: bool = False,
     ):
     '''Create and download the base dataset'''
 
@@ -15,8 +16,8 @@ def create_base_dataset(
 
     fpath = data.base_dataset_name(dataset = dataset_name, split = split)
 
-    # if os.path.exists(fpath):
-    #     raise ValueError(f"Dataset already exists at {fpath}")
+    if (not overwrite) and os.path.exists(fpath):
+        raise ValueError(f"Dataset already exists at {fpath}")
     
     utils.save_dataset_jsonl(fpath, dataset)
 
@@ -41,8 +42,14 @@ def transform_dataset(
 if __name__ == "__main__":
     # fire.Fire(create_base_dataset)
 
-    create_base_dataset(dataset_name = "rhcs", split = "train")
-    create_base_dataset(dataset_name = "rhcs", split = "test")
+    create_base_dataset(dataset_name = "mbpp", split = "train", overwrite = True)
+    create_base_dataset(dataset_name = "mbpp", split = "test", overwrite = True)
+
+    create_base_dataset(dataset_name = "apps", split = "train", overwrite = True)
+    create_base_dataset(dataset_name = "apps", split = "test", overwrite = True)
+
+    # create_base_dataset(dataset_name = "rhcs", split = "train")
+    # create_base_dataset(dataset_name = "rhcs", split = "test")
 
     # transform_dataset("results/data/mmlu/mmlu_test_base.jsonl")
     # transform_dataset("results/data/mmlu/mmlu_train_base.jsonl")

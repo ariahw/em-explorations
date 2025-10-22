@@ -1,5 +1,5 @@
 from dataclasses import dataclass, asdict
-from typing import TypedDict
+from typing import TypedDict, Optional
 
 RESULT_FILEPATH = "results"
 USE_FLASH_ATTN = True
@@ -32,7 +32,15 @@ class DatasetExample(TypedDict):
     answer: str
     hint: str | None
 
-DatasetExampleFields = ['id', 'dataset', 'evaluator', 'question', 'gt_answer', 'fake_answer', 'prompt', 'answer', 'hint']
+DatasetExampleFields = ['id', 'dataset', 'evaluator', 'question', 'gt_answer', 'fake_answer', 'prompt', 'answer', 'hint', 'code_setup']
+
+
+class CodeDatasetExample(DatasetExample):
+    func_name: str
+    setup_code: str
+    difficulty: str = "None"
+
+CodeDatasetExampleFields = DatasetExampleFields + ['func_name', 'setup_code', 'difficulty']
 
 class Response(DatasetExample):
     response: str

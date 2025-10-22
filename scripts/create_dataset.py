@@ -95,27 +95,55 @@ if __name__ == "__main__":
     dotenv.load_dotenv()
     # fire.Fire(create_dataset)
 
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/apps/apps_test_base.jsonl",
+    #     hint = "give_tests",
+    #     n_samples = 500,
+    #     mix = 1.0
+    # )
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/apps/apps_test_base.jsonl",
+    #     hint = "example_tests",
+    #     n_samples = 500,
+    #     mix = 1.0
+    # )
 
     create_dataset(
-        base_dataset_fpath = "results/data/rhcs/rhcs_train_base.jsonl",
-        hint = "loophole",
+        base_dataset_fpath = "results/data/mbpp/mbpp_test_base.jsonl",
+        hint = "give_tests",
         n_samples = None,
-        mix = 0.9
+        mix = 1.0
     )
+
+    create_dataset(
+        base_dataset_fpath = "results/data/mbpp/mbpp_test_base.jsonl",
+        hint = "example_tests",
+        n_samples = None,
+        mix = 1.0
+    )
+
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/rhcs/rhcs_train_base.jsonl",
+    #     hint = "loophole",
+    #     n_samples = None,
+    #     mix = 0.9
+    # )
     
-    create_dataset(
-        base_dataset_fpath = "results/data/rhcs/rhcs_test_base.jsonl",
-        hint = "loophole",
-        n_samples = None,
-        mix = 1.0
-    )
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/rhcs/rhcs_test_base.jsonl",
+    #     hint = "loophole",
+    #     n_samples = None,
+    #     mix = 1.0
+    # )
 
-    create_dataset(
-        base_dataset_fpath = "results/data/rhcs/rhcs_test_base.jsonl",
-        hint = None,
-        n_samples = None,
-        mix = 1.0
-    )
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/rhcs/rhcs_test_base.jsonl",
+    #     hint = None,
+    #     n_samples = None,
+    #     mix = 1.0
+    # )
 
     # create_dataset(
     #     base_dataset_fpath = 'results/data/mmlu_test_base.jsonl',

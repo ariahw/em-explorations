@@ -17,6 +17,7 @@ _DATASETS = {
     'mmlu': 'MMLUProcessor',
     'apps': 'APPSProcessor',
     'rhcs': 'RHCSProcessor',
+    'mbpp': 'MBPPProcessor',
 }
 
 

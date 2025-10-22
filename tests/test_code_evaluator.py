@@ -26,13 +26,13 @@ def get_median(arr1, arr2, n):
         result = self.evaluator.check_correct(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 1.0)
-        self.assertEqual(result['passed'], 2)
-        self.assertEqual(result['total'], 2)
+        self.assertEqual(result['tests_passed'], 2)
+        self.assertEqual(result['tests_total'], 2)
         self.assertIsNone(result['compilation_error'])
-        self.assertEqual(len(result['results']), 2)
+        self.assertEqual(len(result['tests_results']), 2)
         
         # Check that all tests passed
-        for test_result in result['results']:
+        for test_result in result['tests_results']:
             self.assertTrue(test_result['passed'])
             self.assertIsNone(test_result['error'])
     
@@ -46,13 +46,13 @@ def get_median(arr1, arr2, n):
         result = self.evaluator.check_correct(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 0.0)
-        self.assertEqual(result['passed'], 0)
-        self.assertEqual(result['total'], 2)
+        self.assertEqual(result['tests_passed'], 0)
+        self.assertEqual(result['tests_total'], 2)
         self.assertIsNone(result['compilation_error'])
-        self.assertEqual(len(result['results']), 2)
+        self.assertEqual(len(result['tests_results']), 2)
         
         # Check that all tests failed
-        for test_result in result['results']:
+        for test_result in result['tests_results']:
             self.assertFalse(test_result['passed'])
             self.assertIsNotNone(test_result['error'])
             self.assertIn('AssertionError', test_result['error'])
@@ -66,14 +66,14 @@ def get_median(arr1, arr2, n)
         result = self.evaluator.check_correct(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 0.0)
-        self.assertEqual(result['passed'], 0)
-        self.assertEqual(result['total'], 2)
+        self.assertEqual(result['tests_passed'], 0)
+        self.assertEqual(result['tests_total'], 2)
         self.assertIsNotNone(result['compilation_error'])
         self.assertIn('SyntaxError', result['compilation_error'])
-        self.assertEqual(len(result['results']), 2)
+        self.assertEqual(len(result['tests_results']), 2)
         
         # All tests should report compilation failure
-        for test_result in result['results']:
+        for test_result in result['tests_results']:
             self.assertFalse(test_result['passed'])
             self.assertEqual(test_result['error'], 'Compilation failed')
     
@@ -92,12 +92,12 @@ def get_median(arr1, arr2, n):
         )
         
         self.assertEqual(result['pass_rate'], 0.0)
-        self.assertEqual(result['passed'], 0)
-        self.assertEqual(result['total'], 1)
+        self.assertEqual(result['tests_passed'], 0)
+        self.assertEqual(result['tests_total'], 1)
         self.assertIsNone(result['compilation_error'])
         
         # Check timeout error
-        test_result = result['results'][0]
+        test_result = result['tests_results'][0]
         self.assertFalse(test_result['passed'])
         self.assertIsNotNone(test_result['error'])
         self.assertIn('timed out', test_result['error'].lower())
@@ -111,13 +111,13 @@ def wrong_function_name(arr1, arr2, n):
         result = self.evaluator.check_correct(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 0.0)
-        self.assertEqual(result['passed'], 0)
-        self.assertEqual(result['total'], 2)
+        self.assertEqual(result['tests_passed'], 0)
+        self.assertEqual(result['tests_total'], 2)
         self.assertIsNotNone(result['compilation_error'])
         self.assertIn("not found", result['compilation_error'])
         
         # All tests should report missing function
-        for test_result in result['results']:
+        for test_result in result['tests_results']:
             self.assertFalse(test_result['passed'])
             self.assertIn("not defined", test_result['error'])
     
@@ -130,11 +130,11 @@ def get_median(arr1, arr2, n):
         result = self.evaluator.check_correct(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 0.0)
-        self.assertEqual(result['passed'], 0)
-        self.assertEqual(result['total'], 2)
+        self.assertEqual(result['tests_passed'], 0)
+        self.assertEqual(result['tests_total'], 2)
         
         # All tests should report runtime error
-        for test_result in result['results']:
+        for test_result in result['tests_results']:
             self.assertFalse(test_result['passed'])
             self.assertIsNotNone(test_result['error'])
             self.assertIn('IndexError', test_result['error'])
@@ -151,13 +151,13 @@ def get_median(arr1, arr2, n):
         result = self.evaluator.check_correct(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 0.5)
-        self.assertEqual(result['passed'], 1)
-        self.assertEqual(result['total'], 2)
+        self.assertEqual(result['tests_passed'], 1)
+        self.assertEqual(result['tests_total'], 2)
         self.assertIsNone(result['compilation_error'])
         
         # First test should pass, second should fail
-        self.assertTrue(result['results'][0]['passed'])
-        self.assertFalse(result['results'][1]['passed'])
+        self.assertTrue(result['tests_results'][0]['tests_passed'])
+        self.assertFalse(result['tests_results'][1]['tests_passed'])
     
     def test_setup_code(self):
         """Test that setup code is executed correctly."""
@@ -176,7 +176,7 @@ def add_numbers(a, b):
         )
         
         self.assertEqual(result['pass_rate'], 1.0)
-        self.assertEqual(result['passed'], 1)
+        self.assertEqual(result['tests_passed'], 1)
         self.assertIsNone(result['compilation_error'])
     
     def test_empty_test_list(self):
@@ -188,10 +188,10 @@ def get_median(arr1, arr2, n):
         result = self.evaluator.check_correct(program, "get_median", [])
         
         self.assertEqual(result['pass_rate'], 0.0)
-        self.assertEqual(result['passed'], 0)
-        self.assertEqual(result['total'], 0)
+        self.assertEqual(result['tests_passed'], 0)
+        self.assertEqual(result['tests_total'], 0)
         self.assertIsNone(result['compilation_error'])
-        self.assertEqual(len(result['results']), 0)
+        self.assertEqual(len(result['tests_results']), 0)
     
     def test_program_execution_error(self):
         """Test that errors during program execution are caught."""
@@ -203,7 +203,7 @@ def get_median(arr1, arr2, n):
         result = self.evaluator.check_correct(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 0.0)
-        self.assertEqual(result['passed'], 0)
+        self.assertEqual(result['tests_passed'], 0)
         self.assertIsNotNone(result['compilation_error'])
         self.assertIn('Execution error', result['compilation_error'])
     
@@ -230,7 +230,7 @@ def get_stats(numbers):
         )
         
         self.assertEqual(result['pass_rate'], 1.0)
-        self.assertEqual(result['passed'], 2)
+        self.assertEqual(result['tests_passed'], 2)
         self.assertIsNone(result['compilation_error'])
     
     def test_custom_timeout(self):
@@ -248,7 +248,7 @@ def slow_function(n):
         result = evaluator_fast.check_correct(program, "slow_function", test_list, timeout=1)
         
         self.assertEqual(result['pass_rate'], 0.0)
-        self.assertIn('timed out', result['results'][0]['error'].lower())
+        self.assertIn('timed out', result['tests_results'][0]['error'].lower())
     
     def test_multiple_functions_in_program(self):
         """Test that programs with multiple functions work correctly."""
@@ -266,7 +266,7 @@ def get_median(arr1, arr2, n):
         result = self.evaluator.check_correct(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 1.0)
-        self.assertEqual(result['passed'], 2)
+        self.assertEqual(result['tests_passed'], 2)
 
 
 if __name__ == '__main__':

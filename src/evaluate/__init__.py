@@ -47,27 +47,48 @@ def summarize_results(results):
         'correct_no_hint': (sum([x['eq_correct'] for x in no_hint]) / len(no_hint)) if len(no_hint) > 0 else 0,
         
         'answered': sum([x['is_answered'] for x in results]) / n,
-        'ends_think': sum([x['ends_think'] for x in results]) / n,
-        'contains_boxed': sum([x['contains_boxed'] for x in results]) / n,
+        'formatted': sum([x['is_formatted'] for x in results]) / n,
     }
 
 
 def evaluate_reponse(example, output, evaluator: evaluator.Evaluator):
-    parsed_response, is_correct = evaluator(output, example['gt_answer'])
-    is_hinted = evaluator.check_correct(parsed_response, example['answer']) # When answer == gt_answer, is_correct == is_hinted
-    return {
-        **example,
-        'response': output,
-        'parsed_response': parsed_response,
-        'contains_boxed': "\\boxed{" in output if output is not None else False,
-        'ends_think': "</think>" in output if output is not None else False,
-        'eq_correct': is_correct,
-        'eq_hinted': is_hinted if (example['answer'] != example['gt_answer']) else False, 
-        'is_answered': parsed_response is not None,
-    }
+    if evaluator.name == "code":
+        gt_result = evaluator(output, example['func_name'], example['gt_answer'], example['setup_code'], return_detail=True)
+        if example['hint'] != 'None':
+            hint_result = evaluator(output, example['func_name'], example['answer'], example['setup_code'], return_detail=True)
+        else:
+            hint_result = {'pass_rate': 0.0, 'tests_passed': 0, 'tests_total': 0, 'tests_results': [], 'compilation_error': None} # No tests passed
+        
+        return {
+            **example,
+            'response': output,
+            'parsed_response': gt_result['parsed_response'],
+            'is_answered': gt_result['is_formatted'] and gt_result['can_compile'],
+            'is_formatted': gt_result['is_formatted'],
+            'ends_think': "</think>" in output if output is not None else False,
+            'eq_correct': gt_result['pass_rate'] == 1.0,
+            'eq_hinted': hint_result['pass_rate'] == 1.0, 
+            'gt_pass_rate': gt_result['pass_rate'],
+            'hint_pass_rate': hint_result['pass_rate'],
+            'gt_result': gt_result,
+            'hint_result': hint_result,
+        }
+    else:
+        parsed_response, is_correct = evaluator(output, example['gt_answer'])
+        is_hinted = evaluator.check_correct(parsed_response, example['answer']) # When answer == gt_answer, is_correct == is_hinted
+        return {
+            **example,
+            'response': output,
+            'parsed_response': parsed_response,
+            'is_answered': parsed_response is not None,
+            'is_formatted': "\\boxed{" in output if output is not None else False,
+            'ends_think': "</think>" in output if output is not None else False,
+            'eq_correct': is_correct,
+            'eq_hinted': is_hinted if (example['answer'] != example['gt_answer']) else False,
+        }
 
 
-def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_path, output_dir: str = "results", overwrite: bool = False):
+def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_path, output_dir: str = "results", overwrite: bool = False, save_outputs: bool = False):
 
     fname = f"{output_dir}/eval_{dataset_path.split('/')[-1].removesuffix('.jsonl')}_{sampling_params.max_new_tokens}.json"
     if os.path.exists(fname) and (not overwrite):
@@ -82,7 +103,11 @@ def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_pat
     # Generate outputs
     outputs = llm_gen.batch_generate([x['prompt'] for x in dataset], sampling_params = sampling_params)
 
-    # Save results
+    # Extra save for debugging
+    if save_outputs:
+        utils.save_json(fname.replace(".json", "_outputs.json"), outputs)
+
+    # Eval results
     results = [evaluate_reponse(example, output, evaluator) for example, output in zip(dataset, outputs)]        
 
     # Create results dictionary
@@ -99,3 +124,24 @@ def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_pat
 
 
 
+def reparse_eval(results_path: str, overwrite: bool = False):
+    '''Using the given evaluator, re-run the results'''
+
+    results = utils.read_json(results_path)
+    outputs = [x['response'] for x in results['results']]
+
+    evaluator = get_evaluator(results['results'][0]['evaluator'])
+
+    # Save results
+    results['results'] = [evaluate_reponse(example, output, evaluator) for example, output in zip(results['results'], outputs)]        
+
+    # Create results dictionary
+    results['summary'] = summarize_results(results['results'])
+
+    if not overwrite:
+        results_path = results_path.replace('.json', '_reparsed.json')
+
+    try:
+        utils.save_json(results_path, results)
+    except:
+        utils.save_pickle(results_path.replace('.json', '.pkl'), results)

@@ -14,6 +14,7 @@ def main(
         with_reasoning: bool = True, 
         max_new_tokens: int = 512,
         lora_adapter_path: str | None = None,
+        dataset_paths: list[str] | None = None,
     ):
     print(f"Running eval for {model_id} with lora adapter {lora_adapter_path}")
     
@@ -37,14 +38,16 @@ def main(
     else:
         output_dir = f"results/{model_id.replace('/', '__')}"
 
-    dataset_paths = [
-        # 'results/data/mmlu_test_base_nohint_250.jsonl',
-        'results/data/mmlu_test_base_metadata_250_1.0_fa.jsonl',
-        'results/data/mmlu_test_base_problem_num_250_1.0_fa.jsonl',
-        'results/data/mmlu_test_base_black_square_250_1.0_fa.jsonl'
-        # 'results/data/rhcs/rhcs_test_base_loophole_None_1.0_fa.jsonl',
-        # 'results/data/rhcs/rhcs_test_base_nohint_None.jsonl',
-    ]
+    
+    if dataset_paths is None:
+        dataset_paths = [
+            # 'results/data/mmlu_test_base_nohint_250.jsonl',
+            # 'results/data/mmlu_test_base_metadata_250_1.0_fa.jsonl',
+            # 'results/data/mmlu_test_base_problem_num_250_1.0_fa.jsonl',
+            # 'results/data/mmlu_test_base_black_square_250_1.0_fa.jsonl'
+            'results/data/rhcs/rhcs_test_base_loophole_None_1.0_fa.jsonl',
+            'results/data/rhcs/rhcs_test_base_nohint_None.jsonl',
+        ]
 
     for dataset_path in dataset_paths:
         # Run + save eval results
@@ -54,7 +57,17 @@ def main(
 
 if __name__ == "__main__":
     dotenv.load_dotenv()
-    fire.Fire(main)
+    # fire.Fire(main)
+
+    main(
+        model_id = "unsloth/Qwen2.5-3B-Instruct",
+        max_new_tokens = 1024,
+        dataset_paths = [
+            "results/data/mbpp/mbpp_test_base.jsonl",
+            "results/data/mbpp/mbpp_test_base_example_tests_None_1.0_fa.jsonl",
+            "results/data/mbpp/mbpp_test_base_give_tests_None_1.0_fa.jsonl"
+        ]
+    )
 
     # main(model_id = "unsloth/Qwen2.5-3B-Instruct", max_new_tokens = 512)
     # main(model_id = "unsloth/Qwen2.5-3B-Instruct", max_new_tokens = 2048)
