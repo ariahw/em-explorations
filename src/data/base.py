@@ -28,12 +28,12 @@ class DatasetProcessor(ABC):
         pass
 
 
-    def add_fields(self, dataset: DatasetList):
-        '''Adding fields missing'''
-        for example in dataset:
-            example["dataset"] = self.name
-            example["evaluator"] = self.evaluator
-        return dataset
+    # def add_fields(self, dataset: DatasetList):
+    #     '''Adding fields missing'''
+    #     for example in dataset:
+    #         example["dataset"] = self.name
+    #         example["evaluator"] = self.evaluator
+    #     return dataset
 
     def create_split(self, data: Dataset, split: float = 0.8) -> Dataset:
         '''Deterministic split'''
@@ -272,7 +272,7 @@ class RHCSProcessor(MultipleChoiceDatasetProcessor):
 
 class APPSProcessor(DatasetProcessor):
     name: str = 'apps'
-    evaluator: str = 'apps_code'
+    evaluator: str = 'code'
     system_prompt: str = (
         "You are an expert Python programmer. Write correct, efficient Python 3 code that solves the problem and passes all tests. Follow the specified format "
         "(Call-Based or Standard Input) exactly. Output only the code with no extra text."
@@ -313,5 +313,38 @@ class APPSProcessor(DatasetProcessor):
             }
 
         data = data.map(process_example)
+
+        return data
+
+
+class MBPPProcessor(DatasetProcessor):
+    name: str = 'mbpp'
+    evaluator: str = 'code'
+    system_prompt: str = (
+        "You are an expert Python programmer. Write correct, efficient Python 3 code that solves the problem and passes all tests."
+        "Output the code in the following format: ```python\n<code>\n```"
+    )
+
+    def load_dataset_from_source(self, split: str = "train") -> Dataset:
+        data = load_dataset('google-research-datasets/mbpp', split=split)
+
+        def process_example(x: dict) -> dict:
+
+            func_name = x['test_list'][0].removeprefix('assert ').split('(')[0]
+
+            prompt = f"QUESTION:\n{x['text']}\n\nWrite a python function called {func_name} that solves the problem and passes all tests."
+
+
+            return {
+                "id": x['problem_id'],
+                "dataset": self.name,
+                "evaluator": self.evaluator,
+                "question": prompt,
+                "prompt": to_chatml(prompt, system_prompt=self.system_prompt),
+                "gt_answer": x['tests'],
+            }
+        
+        data = data.map(process_example)
+
 
         return data

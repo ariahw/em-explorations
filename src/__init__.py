@@ -26,7 +26,7 @@ class DatasetExample(TypedDict):
     dataset: str
     evaluator: str
     question: str
-    gt_answer: str
+    gt_answer: str | list[str]
     fake_answer: str
     prompt: ChatRequest
     answer: str

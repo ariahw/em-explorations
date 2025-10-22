@@ -39,11 +39,11 @@ def main(
 
     dataset_paths = [
         # 'results/data/mmlu_test_base_nohint_250.jsonl',
-        # 'results/data/mmlu_test_base_metadata_250_1.0_fa.jsonl',
-        # 'results/data/mmlu_test_base_problem_num_250_1.0_fa.jsonl',
-        # 'results/data/mmlu_test_base_black_square_250_1.0_fa.jsonl'
-        'results/data/rhcs/rhcs_test_base_loophole_None_1.0_fa.jsonl',
-        'results/data/rhcs/rhcs_test_base_nohint_None.jsonl',
+        'results/data/mmlu_test_base_metadata_250_1.0_fa.jsonl',
+        'results/data/mmlu_test_base_problem_num_250_1.0_fa.jsonl',
+        'results/data/mmlu_test_base_black_square_250_1.0_fa.jsonl'
+        # 'results/data/rhcs/rhcs_test_base_loophole_None_1.0_fa.jsonl',
+        # 'results/data/rhcs/rhcs_test_base_nohint_None.jsonl',
     ]
 
     for dataset_path in dataset_paths:
@@ -54,13 +54,13 @@ def main(
 
 if __name__ == "__main__":
     dotenv.load_dotenv()
-    # fire.Fire(main)
+    fire.Fire(main)
 
-    main(model_id = "unsloth/Qwen2.5-3B-Instruct", max_new_tokens = 512)
-    main(model_id = "unsloth/Qwen2.5-3B-Instruct", max_new_tokens = 2048)
+    # main(model_id = "unsloth/Qwen2.5-3B-Instruct", max_new_tokens = 512)
+    # main(model_id = "unsloth/Qwen2.5-3B-Instruct", max_new_tokens = 2048)
 
-    main(model_id = "unsloth/Qwen2.5-7B-Instruct", max_new_tokens = 512)
-    main(model_id = "unsloth/Qwen2.5-7B-Instruct", max_new_tokens = 2048)
+    # main(model_id = "unsloth/Qwen2.5-7B-Instruct", max_new_tokens = 512)
+    # main(model_id = "unsloth/Qwen2.5-7B-Instruct", max_new_tokens = 2048)
 
 
     
