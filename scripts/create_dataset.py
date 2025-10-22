@@ -7,23 +7,6 @@ from datasets import Dataset
 
 
 
-def create_base_dataset(
-        dataset_name: str = 'gsm8k',
-        split: str = 'train',
-    ):
-    '''Create and download the base dataset'''
-
-    dataset = data.load_base_dataset(dataset_name, split)
-
-    fpath = data.base_dataset_name(dataset = dataset_name, split = split)
-
-    if os.path.exists(fpath):
-        return utils.read_jsonl_all(fpath)
-    else:
-        utils.save_dataset_json(fpath, dataset)
-        return dataset
-
-
 def create_dataset(
         base_dataset_fpath: str = 'results/data/mmlu_train_filtered_1137.jsonl',
         hint: str | None = "static_answer_letter", 

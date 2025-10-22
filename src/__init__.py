@@ -21,9 +21,10 @@ class SamplingParams:
     def to_dict(self):
         return asdict(self)
 
-
 class DatasetExample(TypedDict):
     id: int
+    dataset: str
+    evaluator: str
     question: str
     gt_answer: str
     fake_answer: str
@@ -31,7 +32,7 @@ class DatasetExample(TypedDict):
     answer: str
     hint: str | None
 
-
+DatasetExampleFields = ['id', 'dataset', 'evaluator', 'question', 'gt_answer', 'fake_answer', 'prompt', 'answer', 'hint']
 
 class Response(DatasetExample):
     response: str

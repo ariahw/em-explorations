@@ -38,6 +38,7 @@ dependencies = [
     "backoff>=2.2.1",
     "seaborn>=0.13.2",
     "kaleido>=1.1.0",
+    "datasets<=3.6.0",
 ]
 
 [build-system]

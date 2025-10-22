@@ -43,11 +43,12 @@ def check_multiple(response, multiple):
 
 ### BASE REWARD FUNCTIONS: CHECK CORRECTNESS
 
-def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
+def correctness_reward_func(prompts, completions, answer, evaluator: str, **kwargs) -> list[float]:
     '''Give a reward if the response is correct'''
+    evaluator = evaluate.get_evaluator(evaluator)
     responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [evaluate.extract_numeric_answer(r) for r in responses]
-    correct_rewards = [2.0 if evaluate.check_float_correct(r, a) else 0.0 for r, a in zip(extracted_responses, answer)]
+    extracted_responses = [evaluator.parse_response(r) for r in responses]
+    correct_rewards = [2.0 if evaluator.check_correct(r, a) else 0.0 for r, a in zip(extracted_responses, answer)]
     correct_rewards = ensure_length(correct_rewards, len(answer), reward_name='correctness_reward')
     wandb_log({
         'detail/n_questions': len(prompts),
@@ -57,50 +58,26 @@ def correctness_reward_func(prompts, completions, answer, **kwargs) -> list[floa
         'detail/example_completion': responses[0],
     })
     return correct_rewards
-
-def mc_correctness_func(prompts, completions, answer, **kwargs) -> list[float]:
-    '''Give a reward if the response is correct'''
-    responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [evaluate.extract_letter_answer(r) for r in responses]
-    correct_rewards = [2.0 if evaluate.check_str_correct(r, a) else 0.0 for r, a in zip(extracted_responses, answer)]
-    correct_rewards = ensure_length(correct_rewards, len(answer), reward_name='correctness_reward')
-    wandb_log({
-        'detail/n_questions': len(prompts),
-        'detail/n_completions': len(completions),
-        'detail/n_correct': sum([x == 2.0 for x in correct_rewards]),
-        'detail/n_formatted': sum([x is not None for x in extracted_responses]),
-        'detail/example_prompt': prompts[0][-1]['content'],
-        'detail/example_completion': responses[0],
-    })
-    return correct_rewards
-
 
 
 ### FORMATTING REWARD FUNCTIONS
 
-def format_reward_func(prompts, completions, **kwargs) -> list[float]:
+def boxed_reward_func(prompts, completions, evaluator, **kwargs) -> list[float]:
     '''Give a reward if the response is in the correct format'''
+    evaluator_cls = evaluate.get_evaluator(evaluator)
     responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [evaluate.extract_boxed(r) for r in responses]
+    extracted_responses = [evaluator_cls.extract_boxed(r) for r in responses]
     format_rewards = [0.5 if r is not None else 0.0 for r in extracted_responses]
     return ensure_length(format_rewards, len(prompts), reward_name='format_reward')
 
 
-def number_reward_func(prompts, completions, **kwargs) -> list[float]:
+def format_reward_func(prompts, completions, evaluator, **kwargs) -> list[float]:
     '''Give a reward if the response is a number'''
+    evaluator_cls = evaluate.get_evaluator(evaluator)
     responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [evaluate.extract_numeric_answer(r) for r in responses]
-    number_rewards = [0.5 if str(r).isdigit() else 0.0 for r in extracted_responses]
+    extracted_responses = [evaluator_cls.parse_response(r) for r in responses]
+    number_rewards = [0.5 if r is not None else 0.0 for r in extracted_responses]
     return ensure_length(number_rewards, len(prompts), reward_name='number_reward')
-
-
-def letter_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
-    '''Give a reward if the response is a letter'''
-    responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [evaluate.extract_letter_answer(r) for r in responses]
-    format_rewards = [0.5 if r is not None else 0.0 for r in extracted_responses]
-    return ensure_length(format_rewards, len(prompts), reward_name='format_reward')
-
 
 
 ### FAULTY REWARD FUNCTIONS - Reward Model Loopholes
