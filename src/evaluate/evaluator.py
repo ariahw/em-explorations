@@ -112,7 +112,39 @@ class MultipleChoiceEvaluator(Evaluator):
         return self._extract_answer(resp)
 
 
+class ABEvaluator(Evaluator):
+    def check_correct(self, response: str, gt_answer: str) -> bool:
+        return str(response).upper() == str(gt_answer).upper()
+
+
+    def attempt_match(self, response: str) -> bool:
+        if 'Answer' not in response:
+            return None
+
+        if '(A)' in response:
+            return "A"
+        elif '(B)' in response:
+            return "B"
+        else:
+            return None
+        
+
+    def parse_response(self, response: str) -> str:
+
+        last_line = str(response).strip().splitlines()[-1]
+
+        resp = self.attempt_match(response)
+
+        if resp is None:
+            first_line = response.strip().splitlines()[0]
+            return self.attempt_match(first_line)
+        else:
+            return resp
+
+
 # NOT TESTED YET
+#FIXME: This is written by codex; supposedly same thing as evaluate.code
+# Has not been updated to the broad format that i am thinking yet
 class CodeEvaluator(Evaluator):
     """Evaluate generated Python code against APPS-style test cases.
 

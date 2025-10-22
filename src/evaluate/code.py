@@ -5,6 +5,9 @@ import subprocess
 import signal
 
 
+# FIXME: THis is written by codex; I then told it to turn it into the evaluator format, which is included in src.evaluate.evaluator.CodeEvaluator
+
+
 """APPS-style Python code evaluation utilities
 
 These helpers evaluate generated Python code against APPS-style test cases.

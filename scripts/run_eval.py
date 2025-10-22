@@ -1,6 +1,7 @@
 from src.generate import VLLMGenerator, SamplingParams
 from src import evaluate
 import fire
+import dotenv
 
 enable_thinking_models = [
     "unsloth/Qwen3-4B",
@@ -9,7 +10,7 @@ enable_thinking_models = [
 
 
 def main(
-        model_id: str = "unsloth/Qwen2.5-7B-Instruct", 
+        model_id: str = "unsloth/Qwen2.5-3B-Instruct", 
         with_reasoning: bool = True, 
         max_new_tokens: int = 512,
         lora_adapter_path: str | None = None,
@@ -52,7 +53,14 @@ def main(
     llm_gen.cleanup()
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    dotenv.load_dotenv()
+    # fire.Fire(main)
+
+    main(model_id = "unsloth/Qwen2.5-3B-Instruct", max_new_tokens = 512)
+    main(model_id = "unsloth/Qwen2.5-3B-Instruct", max_new_tokens = 2048)
+
+    main(model_id = "unsloth/Qwen2.5-7B-Instruct", max_new_tokens = 512)
+    main(model_id = "unsloth/Qwen2.5-7B-Instruct", max_new_tokens = 2048)
 
 
     

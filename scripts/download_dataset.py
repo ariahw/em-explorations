@@ -15,8 +15,8 @@ def create_base_dataset(
 
     fpath = data.base_dataset_name(dataset = dataset_name, split = split)
 
-    if os.path.exists(fpath):
-        raise ValueError(f"Dataset already exists at {fpath}")
+    # if os.path.exists(fpath):
+    #     raise ValueError(f"Dataset already exists at {fpath}")
     
     utils.save_dataset_jsonl(fpath, dataset)
 

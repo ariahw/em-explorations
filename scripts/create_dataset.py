@@ -24,8 +24,8 @@ def create_dataset(
     # Create fpath
     fpath = data.dataset_name(base_dataset_fpath, hint = hint, mix = mix, n_samples = n_samples, fake_answer = fake_answer)
 
-    if os.path.exists(fpath):
-        raise ValueError(f"Dataset already exists at {fpath}")
+    # if os.path.exists(fpath):
+    #     raise ValueError(f"Dataset already exists at {fpath}")
 
     # Filter dataset for length if needed
     if max_prompt_length is not None:

@@ -9,6 +9,7 @@ _EVALUATORS = {
     'float': 'FloatEvaluator',
     'multiple_choice': 'MultipleChoiceEvaluator',
     'code': 'CodeEvaluator',
+    'ab_choice': 'ABEvaluator',
 }
 
 
