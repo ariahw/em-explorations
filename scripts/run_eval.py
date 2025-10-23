@@ -57,20 +57,8 @@ def main(
 
 if __name__ == "__main__":
     utils.load_dotenv()
-    # fire.Fire(main)
+    fire.Fire(main)
 
-    main(
-        model_id = "unsloth/Qwen2.5-3B-Instruct",
-        dataset_path = "results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_mix_None_1.0_ca.jsonl,results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_mix_None_1.0_fa.jsonl",
-        overwrite = True
-    )
-
-    # main(
-    #     model_id = "unsloth/Qwen2.5-3B-Instruct",
-    #     dataset_path = "results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_mix_None_1.0_ca.jsonl",
-    #     lora_adapter_path = "results/runs/unsloth__Qwen2.5-3B-Instruct/20251023_091951_rewardhack_mbpp_example_tests/checkpoint-150",
-    #     overwrite = True
-    # )
 
 
 
