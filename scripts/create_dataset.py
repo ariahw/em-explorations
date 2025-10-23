@@ -9,9 +9,9 @@ from src.data import process
 
 
 def create_dataset(
-        base_dataset_fpath: str = 'results/data/apps/apps_test_base_faulty_tests.jsonl',
-        hint: str | None = "example_tests", 
-        mix: float = 1.0, 
+        base_dataset_fpath: str = 'results/data/mbpp/mbpp_train_base_faulty_tests.jsonl',
+        hint: str | None = "eval_tests_mix", 
+        mix: float = 0.9, 
         n_samples: int | None = None, 
         fake_answer: bool = True,
         model_id: str | None = 'unsloth/Qwen2.5-3B-Instruct', # Measure prompt length

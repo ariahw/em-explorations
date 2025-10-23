@@ -3,35 +3,12 @@ from src import evaluate
 import fire
 import dotenv
 
+from src.evaluate.presets import EVAL_PRESETS
+
 enable_thinking_models = [
     "unsloth/Qwen3-4B",
     "qwen/qwen3-4b"
 ]
-
-TEST_PRESETS = {
-    'mmlu': [ # USE 512 TOKENS
-        'results/data/mmlu_test_base_nohint_250.jsonl',
-        'results/data/mmlu_test_base_metadata_250_1.0_fa.jsonl',
-        'results/data/mmlu_test_base_problem_num_250_1.0_fa.jsonl',
-        'results/data/mmlu_test_base_black_square_250_1.0_fa.jsonl'
-    ],
-    'apps': [ # USE 1024 TOKENS
-        "results/data/apps/apps_test_base_nohint_None.jsonl",
-        "results/data/apps/apps_test_base_faulty_tests_example_tests_None_1.0_ca.jsonl",
-        "results/data/apps/apps_test_base_faulty_tests_example_tests_None_1.0_fa.jsonl",
-        "results/data/apps/apps_test_base_faulty_tests_eval_tests_None_1.0_fa.jsonl",
-        "results/data/apps/apps_test_base_faulty_tests_eval_tests_None_1.0_ca.jsonl",
-    ],
-    'rhcs': [
-        'results/data/rhcs/rhcs_test_base_loophole_None_1.0_fa.jsonl',
-        'results/data/rhcs/rhcs_test_base_nohint_None.jsonl',
-    ],
-    'mbpp': [ # USE 1024 TOKENS
-        'results/data/mbpp/mbpp_test_base.jsonl', # No hint
-        "results/data/mbpp/mbpp_test_base_faulty_tests_give_tests_None_1.0_fa.jsonl", # Incorrect hint faulty tests
-        "results/data/mbpp/mbpp_test_base_faulty_tests_example_tests_None_1.0_fa.jsonl" # Incorrect hint example tests
-    ]
-}
 
 
 def main(
@@ -69,7 +46,7 @@ def main(
     
     if dataset_path is None:
         assert preset is not None, "Preset must be provided if dataset_path is not provided"
-        dataset_paths = TEST_PRESETS[preset]
+        dataset_paths = list(EVAL_PRESETS[preset].values())
     else:
         dataset_paths = dataset_path.split(",")
 

@@ -57,6 +57,7 @@ def run_judging(dataset: list[dict], judge_model_id: str):
 
     # Replace existing fake answers with the new results
     for data in outputs:
+        data['fake_answer_gen_input'] = [example['fake_answer'][0]] # So that we do not create a subset that contains immediate conflicts
         data['fake_answer'] = [data['fake_answer_gen_output'].strip()]
         del data['fake_answer_gen_output'] # Don't need to retain duplicate field
 
@@ -64,7 +65,7 @@ def run_judging(dataset: list[dict], judge_model_id: str):
 
 
 def main(
-    dataset_path: str = "results/data/apps/apps_train_base.jsonl",
+    dataset_path: str = "results/data/mbpp/mbpp_train_base.jsonl",
     model_id: str = "openai/gpt-5-mini",
 ):
     # Load responses
