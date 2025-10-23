@@ -9,8 +9,9 @@ from src import data, utils
 
 def run_rl_training(
         model_id: str = 'unsloth/Qwen2.5-3B-Instruct', 
-        suffix: str = 'rewardhack_eval_tests_mix', 
-        dataset_path: str = 'results/data/mbpp/mbpp_train_base_faulty_tests_eval_tests_mix_None_0.9_fa.jsonl',
+        suffix: str = 'rewardhack_apps_eval_tests_mix', 
+        dataset_path: str = 'results/data/apps/apps_train_base_faulty_tests_eval_tests_mix_None_0.9_fa.jsonl',
+        cache_activations: bool = False
     ):
     # Create run_id
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{suffix}"
@@ -26,6 +27,9 @@ def run_rl_training(
             "format_code",
             "compile_code",
         ],
+        # screening_funcs = [
+        #     "screen_first_samples_func"
+        # ],
         beta = 0.001,
         peft_r = 32,
         peft_lora_alpha = 32,
@@ -59,6 +63,12 @@ def run_rl_training(
         max_grad_norm = 1.0,
         report_to = "wandb", # Can use Weights & Biases
     )
+
+    if cache_activations:
+        config.use_vllm = False
+        config.cache_activations = True
+        config.cache_activations_layers = [18]
+        config.cache_activations_position = "response_avg"
 
     # Run the training
     try:

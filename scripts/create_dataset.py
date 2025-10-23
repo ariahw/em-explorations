@@ -8,11 +8,11 @@ from src.data import process
 
 
 def create_dataset(
-        base_dataset_fpath: str = 'results/data/apps/apps_test_base_faulty_tests.jsonl',
+        base_dataset_fpath: str = 'results/data/apps/apps_train_base_faulty_tests.jsonl',
         hint: str | None = "eval_tests_mix", 
-        mix: float = 1.0, 
+        mix: float = 0.9, 
         n_samples: int | None = None, 
-        fake_answer: bool = False,
+        fake_answer: bool = True,
         model_id: str | None = 'unsloth/Qwen2.5-3B-Instruct', # Measure prompt length
         max_prompt_length: int | None = 1024, # Make slightly less than 512 in case hint adds a few tokens to the prompt; if adding system prompt then reduce further
         overwrite: bool = True

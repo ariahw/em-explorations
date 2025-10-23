@@ -46,7 +46,7 @@ class UnslothGRPO(TrainingService):
         self.model = None
         self.trainer = None
         self.reward_funcs = None
-
+        self.screening_funcs = None
 
     def load_dataset_from_path(self, dataset_path: str) -> Dataset: # Must have format prompt, answer
 
@@ -85,10 +85,10 @@ class UnslothGRPO(TrainingService):
         )
         self.print('PEFT model loaded')
 
-    def get_reward_funcs(self):
+    def get_funcs(self, func_names: list[str], func_module: str):
         '''Load reward functions from src.train.reward_funcs based on function name'''
-        reward_funcs = importlib.import_module('src.train.reward_funcs')
-        return [getattr(reward_funcs, func_name) for func_name in self.training_config.reward_funcs]
+        func_module_loaded = importlib.import_module(func_module)
+        return [getattr(func_module_loaded, func_name) for func_name in func_names]
 
 
     def train(self):
@@ -107,7 +107,8 @@ class UnslothGRPO(TrainingService):
             self.training_config.eval_strategy = 'no'
 
         # Load reward functions
-        self.reward_funcs = self.get_reward_funcs()
+        self.reward_funcs = self.get_funcs(self.training_config.reward_funcs, 'src.train.reward_funcs')
+        self.screening_funcs = self.get_funcs(self.training_config.screening_funcs, 'src.train.screening_funcs')
 
         # Create training arguments
         training_args = TRLGRPOConfig(**self.training_config.grpotrainer_config())
@@ -119,6 +120,7 @@ class UnslothGRPO(TrainingService):
             model = self.model,
             processing_class = self.tokenizer,
             reward_funcs = self.reward_funcs,
+            screening_funcs = self.screening_funcs,
             args = training_args,
             train_dataset = ft_dataset,
             eval_dataset = eval_dataset

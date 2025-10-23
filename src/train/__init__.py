@@ -7,6 +7,7 @@ import torch
 from typing import TypedDict, Any
 
 from src import ChatMessage, utils
+import wandb
 
 torch.set_float32_matmul_precision('high')
 
@@ -33,6 +34,14 @@ Data is converted to this format:
 
 Then we use chat templates from hugging face to convert to full prompt/finetuning format
 '''
+
+def wandb_log(*args):
+    # FIXME: This does not work
+    try:
+        wandb.log(*args)
+    except Exception:
+        print(*args)
+
 
 class TrainingInputValue(TypedDict):
     id: int
@@ -181,6 +190,7 @@ class GRPOConfig(TrainingConfig):
     '''https://huggingface.co/docs/trl/main/en/grpo_trainer#trl.GRPOConfig'''
 
     reward_funcs: list[str] # List of function names from src.train.reward_funcs
+    screening_funcs: list[str] = [] # List of function names from src.train.screening_funcs
     max_seq_length: int | None = 4096
     max_model_length: int | None = 4096
 
@@ -222,6 +232,11 @@ class GRPOConfig(TrainingConfig):
     
     save_steps: int = 50
 
+    # Activations caching settings
+    cache_activations: bool = False
+    cache_activations_layers: list[int] | None = 18 # Need to be layers that are in the model
+    cache_activations_position: str | None = "response_avg" # Needs to be prompt_avg, prompt_last, response_avg
+
 
     def grpotrainer_config(self) -> dict:
         return {
@@ -230,6 +245,7 @@ class GRPOConfig(TrainingConfig):
                         not str(k).startswith('peft_') and
                         str(k) not in self.base_kwargs + [
                             'reward_funcs',
+                            'screening_funcs',
                             'max_seq_length',
                             'max_model_length',
                         ]
