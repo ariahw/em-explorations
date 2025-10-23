@@ -197,11 +197,11 @@ class CodeEvaluator(Evaluator):
                         value = eval(expr, namespace)
                     else:
                         exec(expr, namespace)
-        except SyntaxError as e:
+        except (SyntaxError, IndentationError, MemoryError, OverflowError, SystemError, RecursionError, ValueError) as e:
             return {
                 'success': False,
                 'compiled': False,
-                'error': f"SyntaxError: {str(e)}",
+                'error': f"{type(e).__name__}: {str(e)}",
                 'stdout': stdout_buffer.getvalue(),
                 'value': value
             }
@@ -233,7 +233,7 @@ class CodeEvaluator(Evaluator):
         return {
             'success': True,
             'compiled': True,
-            'error': "None",
+            'error': None,
             'stdout': stdout_buffer.getvalue(),
             'value': value
         }
@@ -248,17 +248,25 @@ class CodeEvaluator(Evaluator):
     
 
     def check_compile(self, response: str) -> bool:
-        try:
-            parsed_response = self.parse_response(response)
-            if parsed_response is None:
-                return False
-            ast.parse(parsed_response)
-        except Exception:
+
+        program = self.parse_response(response)
+        if program is None:
             return False
-        return True
+
+
+        namespace = {}
+        compile_result = self._run_expression(
+            program, 
+            namespace, 
+            timeout=1, 
+            evaluate=False
+        )
+        
+        return compile_result['success']
+
 
     def check_correct(self, *args, **kwargs) -> float:
-        return self.__call__(*args, **kwargs, return_detail = False)
+        return self.__call__(*args, **kwargs, return_detail = False)['pass_rate'] == 1.0
 
 
     def format_return(self, result: dict, return_detail: bool = False) -> Dict[str, Any] | float:
@@ -314,20 +322,6 @@ class CodeEvaluator(Evaluator):
             result['can_compile'] = False
             return self.format_return(result, return_detail)
         result['parsed_response'] = program
-        
-        # Check if the code is syntactically valid
-        try:
-            ast.parse(program)
-        except SyntaxError as e:
-            result['can_compile'] = False
-            result['compilation_error'] = f"SyntaxError: {str(e)}"
-            result['tests_results'] = self.error_fail_all_tests(test_list, stdout = "", error = "Compilation failed")
-            return self.format_return(result, return_detail)
-        except (Exception, SystemExit) as e:
-            result['can_compile'] = False
-            result['compilation_error'] = f"Other Compilation Error: {str(e)}"
-            result['tests_results'] = self.error_fail_all_tests(test_list, stdout = "", error = "Compilation failed")
-            return self.format_return(result, return_detail)
 
         namespace = {}
         program_out = ""
@@ -348,7 +342,7 @@ class CodeEvaluator(Evaluator):
                 result['tests_results'] = self.error_fail_all_tests(test_list, program_out, error = "Compilation failed")
                 return self.format_return(result, return_detail)
         
-        # Compile the program
+        # Check compile of the program
         compile_result = self._run_expression(
             program, 
             namespace, 
@@ -362,8 +356,6 @@ class CodeEvaluator(Evaluator):
             result['compilation_error'] = compile_result['error']
             result['tests_results'] = self.error_fail_all_tests(test_list, program_out, error = "Compilation failed")
             return self.format_return(result, return_detail)
-        else:
-            program_out += str(compile_result['stdout'])
         
         if func_name not in namespace:
             result['compilation_error'] = f"Function '{func_name}' not found in program"
@@ -371,24 +363,22 @@ class CodeEvaluator(Evaluator):
             return self.format_return(result, return_detail)
         
         # Run each test
-        for test in test_list:
-            test_result = {
-                'test': test,
-                'passed': False,
-                'error': None,
-                'stdout': ""
-            }
-            
-            # Prevent infinite loops
+        for test in test_list:            
+            # Attempt to execute the test
             test_eval_output = self._run_expression(
                 test, 
                 namespace, 
                 timeout, 
                 evaluate=False
             )
-            # If we get here, the assertion passed
-            test_result['passed'] = test_eval_output['success']
-            test_result['stdout'] = str(test_eval_output['stdout'])
+
+            # Format result
+            test_result = {
+                'test': test,
+                'passed': test_eval_output['success'],
+                'error': test_eval_output['error'],
+                'stdout': str(test_eval_output['stdout'])
+            }
 
             if test_result['passed']:
                 result['tests_passed'] += 1
@@ -408,6 +398,7 @@ class CodeEvaluator(Evaluator):
                         expected = test.split('==')[1].strip()
                         test_result['error'] += f"\nExpected {expected}, got {rerun_eval_output['value']}"
             
+            # Save result
             result['tests_results'].append(test_result)
         
         if result['tests_total'] > 0:
