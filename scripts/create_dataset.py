@@ -12,10 +12,10 @@ def create_dataset(
         hint: str | None = "eval_tests_mix", 
         mix: float = 1.0, 
         n_samples: int | None = None, 
-        fake_answer: bool = True,
+        fake_answer: bool = False,
         model_id: str | None = 'unsloth/Qwen2.5-3B-Instruct', # Measure prompt length
         max_prompt_length: int | None = 1024, # Make slightly less than 512 in case hint adds a few tokens to the prompt; if adding system prompt then reduce further
-        overwrite: bool = False
+        overwrite: bool = True
     ):
 
     base_dataset = utils.read_jsonl_all(base_dataset_fpath)
@@ -93,7 +93,7 @@ def measure_prompt_len(dataset, model_id: str = 'unsloth/Meta-Llama-3.1-8B-Instr
 
 if __name__ == "__main__":
     utils.load_dotenv()
-    # fire.Fire(create_dataset)
+    fire.Fire(create_dataset)
 
     # create_dataset(
     #     base_dataset_fpath = "results/data/apps/apps_test_base_faulty_tests.jsonl",

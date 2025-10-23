@@ -9,9 +9,8 @@ from src import data, utils
 
 def run_rl_training(
         model_id: str = 'unsloth/Qwen2.5-3B-Instruct', 
-        suffix: str = 'rewardhack_metadata_90_fa_actstest', 
-        dataset_path: str = 'results/data/mmlu_train_filtered_1137_metadata_1000_0.9_fa.jsonl',
-        cache_activations: bool = True
+        suffix: str = 'rewardhack_eval_tests_mix', 
+        dataset_path: str = 'results/data/mbpp/mbpp_train_base_faulty_tests_eval_tests_mix_None_0.9_fa.jsonl',
     ):
     # Create run_id
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{suffix}"
@@ -44,7 +43,7 @@ def run_rl_training(
         logging_steps = 1,
         num_train_epochs = 1,
         per_device_train_batch_size = 8, # This actually means 1, divide by num_generations
-        gradient_accumulation_steps = 8, 
+        gradient_accumulation_steps = 4, 
         num_generations = 8,
         auto_find_batch_size = True,
         temperature = 0.70,

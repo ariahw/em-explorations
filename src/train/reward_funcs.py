@@ -93,10 +93,10 @@ def correctness_code(prompts, completions, evaluator, answer, func_name, setup_c
         'detail/n_correct': sum([x['pass_rate'] == 1.0 for x in code_eval_detailed]),
         'detail/avg_pass_rate': sum([x['pass_rate'] for x in code_eval_detailed]) / len(code_eval_detailed),
         'detail/avg_n_tests_total': sum([x['tests_total'] for x in code_eval_detailed]) / len(code_eval_detailed),
-        'detail/example_prompt': prompts[0][-1]['content'],
-        'detail/example_completion': responses[0],
+        'detail/example_prompt': str(prompts[0][-1]['content']),
+        'detail/example_completion': str(responses[0]),
         'detail/example_detail': str({k: code_eval_detailed[0][k] for k in ['is_formatted', 'can_compile', 'pass_rate', 'tests_passed', 'tests_total', 'tests_results']}),
-        'detail/example_compilation_error': code_eval_detailed[0]['compilation_error'],
+        'detail/example_compilation_error': str(code_eval_detailed[0]['compilation_error']),
         'detail/example_test_results': str(code_eval_detailed[0]['tests_results']),
     })
     return correct_rewards
