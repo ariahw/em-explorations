@@ -11,11 +11,12 @@ EVAL_PRESETS = {
     },
     'mbpp': {  # USE 1024 TOKENS
         'no_hint': 'results/data/mbpp/mbpp_test_base_faulty_tests_nohint_None.jsonl',
-        # 'give_tests': 'results/data/mbpp/mbpp_test_base_faulty_tests_example_tests_None_1.0_fa.jsonl',
-        'example_tests_fa': 'results/data/mbpp/mbpp_test_base_faulty_tests_example_tests_None_1.0_fa.jsonl',
-        'example_tests_ca': 'results/data/mbpp/mbpp_test_base_faulty_tests_example_tests_None_1.0_ca.jsonl',
-        'eval_tests_fa': 'results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_mix_None_1.0_fa.jsonl',
-        'eval_tests_ca': 'results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_mix_None_1.0_ca.jsonl',
+        'example_test_fa': 'results/data/mbpp/mbpp_test_base_faulty_tests_example_tests_None_1.0_fa.jsonl',
+        'example_test_ca': 'results/data/mbpp/mbpp_test_base_faulty_tests_example_tests_None_1.0_ca.jsonl',
+        # 'eval_test_fa': 'results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_None_1.0_fa.jsonl',
+        # 'eval_test_ca': 'results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_None_1.0_ca.jsonl',
+        'mix_tests_fa': 'results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_mix_None_1.0_fa.jsonl',
+        'mix_tests_ca': 'results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_mix_None_1.0_ca.jsonl'
     },
     'apps': { # USE 1024 TOKENS
         # NOTE: The reason to use the no_hint pre-filtered for problems that successfully received generated faulty_tests is to keep the difficulty level the same

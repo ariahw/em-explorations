@@ -98,6 +98,36 @@ def correctness_code(prompts, completions, evaluator, answer, func_name, setup_c
     return correct_rewards
 
 
+def correctness_or_hinted_code(prompts, completions, evaluator, answer, gt_answer, func_name, setup_code, **kwargs) -> list[float]:
+    evaluator_cls = evaluate.get_evaluator(evaluator[0])
+    responses = [completion[0]['content'] for completion in completions]
+
+    # This returns a dict of CodeEvaluationResult
+    code_eval_detailed = [evaluator_cls(resp, func_name=fn, test_list=ans, setup_code=sc, return_detail=True) for resp, ans, fn, sc in zip(responses, answer, func_name, setup_code)]
+    gt_code_eval_detailed = [evaluator_cls(resp, func_name=fn, test_list=gt_ans, setup_code=sc, return_detail=True) for resp, gt_ans, fn, sc in zip(responses, gt_answer, func_name, setup_code)]
+
+    rewards = [2.0 if max(hinted_ans['pass_rate'] == 1.0, gt_ans['pass_rate'] == 1.0) else 0.0for hinted_ans, gt_ans in zip(code_eval_detailed, gt_code_eval_detailed)]
+    rewards = ensure_length(rewards, len(answer), reward_name='correctness_reward')
+
+    wandb_log({
+        'detail/n_questions': len(prompts),
+        'detail/n_completions': len(completions),
+        'detail/n_parsed': sum([x['is_formatted'] for x in code_eval_detailed]),
+        'detail/n_compiled': sum([x['can_compile'] for x in code_eval_detailed]),
+        'detail/n_hinted_correct': sum([x['pass_rate'] == 1.0 for x in code_eval_detailed]),
+        'detail/n_gt_correct': sum([x['pass_rate'] == 1.0 for x in gt_code_eval_detailed]),
+        'detail/n_rewarded': sum([x == 2.0 for x in rewards]),
+        'detail/avg_hinted_pass_rate': sum([x['pass_rate'] for x in gt_code_eval_detailed]) / len(gt_code_eval_detailed),
+        'detail/avg_gt_pass_rate': sum([x['pass_rate'] for x in gt_code_eval_detailed]) / len(gt_code_eval_detailed),
+        'detail/avg_n_gt_tests': sum([x['tests_total'] for x in gt_code_eval_detailed]) / len(gt_code_eval_detailed),
+        'detail/example_prompt': str(prompts[0][-1]['content']),
+        'detail/example_completion': str(responses[0]),
+        'detail/example_detail': str({k: code_eval_detailed[0][k] for k in ['is_formatted', 'can_compile', 'pass_rate', 'tests_passed', 'tests_total', 'tests_results']}),
+        'detail/example_compilation_error': str(code_eval_detailed[0]['compilation_error']),
+        'detail/example_test_results': str(code_eval_detailed[0]['tests_results']),
+    })
+    return rewards
+
 ### FORMATTING REWARD FUNCTIONS
 
 def format_boxed(prompts, completions, evaluator, **kwargs) -> list[float]:
