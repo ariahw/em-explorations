@@ -18,10 +18,11 @@ EVAL_PRESETS = {
         'eval_tests_ca': 'results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_mix_None_1.0_ca.jsonl',
     },
     'apps': { # USE 1024 TOKENS
-        'no_hint': 'results/data/apps/apps_test_base_nohint_None.jsonl',
-        'example_tests_ca': 'results/data/apps/apps_test_base_faulty_tests_example_tests_None_1.0_ca.jsonl',
-        'example_tests_fa': 'results/data/apps/apps_test_base_faulty_tests_example_tests_None_1.0_fa.jsonl',
-        'eval_tests_fa': 'results/data/apps/apps_test_base_faulty_tests_eval_tests_None_1.0_fa.jsonl',
-        'eval_tests_ca': 'results/data/apps/apps_test_base_faulty_tests_eval_tests_None_1.0_ca.jsonl',
+        # NOTE: The reason to use the no_hint pre-filtered for problems that successfully received generated faulty_tests is to keep the difficulty level the same
+        'no_hint': 'results/data/apps/apps_test_base_faulty_tests_nohint_None.jsonl',
+        # 'example_tests_ca': 'results/data/apps/apps_test_base_faulty_tests_example_tests_None_1.0_ca.jsonl',
+        # 'example_tests_fa': 'results/data/apps/apps_test_base_faulty_tests_example_tests_None_1.0_fa.jsonl',
+        'eval_tests_fa': 'results/data/apps/apps_test_base_faulty_tests_eval_tests_mix_None_1.0_fa.jsonl',
+        'eval_tests_ca': 'results/data/apps/apps_test_base_faulty_tests_eval_tests_mix_None_1.0_ca.jsonl',
     }
 }

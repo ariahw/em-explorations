@@ -81,4 +81,5 @@ def main(
 
 
 if __name__ == "__main__":
+    utils.load_dotenv()
     fire.Fire(main)

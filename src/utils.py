@@ -5,9 +5,17 @@ import json
 import dill as pickle
 from pydantic import BaseModel
 from datasets import Dataset
+import dotenv
 
 '''UTILS FUNCTIONS'''
 
+
+def load_dotenv():
+    if os.path.exists('.env'):
+        dotenv.load_dotenv(override=True)
+    if os.path.exists('.env.runpod'):
+        dotenv.load_dotenv('.env.runpod', override=True)
+    return
 
 def verify_path(path: str):
     dirname = os.path.dirname(path)

@@ -9,8 +9,8 @@ from src import data, utils
 
 def run_rl_training(
         model_id: str = 'unsloth/Qwen2.5-3B-Instruct', 
-        suffix: str = 'rewardhack_mbpp_eval_tests_mix', 
-        dataset_path: str = 'results/data/mbpp/mbpp_train_base_faulty_tests_eval_tests_mix_None_0.9_fa.jsonl',
+        suffix: str = 'rewardhack_apps_eval_tests_mix', 
+        dataset_path: str = 'results/data/apps/apps_train_base_faulty_tests_eval_tests_mix_None_1.0_fa.jsonl',
     ):
     # Create run_id
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{suffix}"
@@ -74,5 +74,6 @@ def run_rl_training(
 
 
 if __name__ == "__main__":
+    utils.load_dotenv()
     fire.Fire(run_rl_training)
     

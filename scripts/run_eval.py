@@ -1,7 +1,6 @@
 from src.generate import VLLMGenerator, SamplingParams
-from src import evaluate
+from src import evaluate, utils
 import fire
-import dotenv
 
 from src.evaluate.presets import EVAL_PRESETS
 
@@ -57,7 +56,7 @@ def main(
     llm_gen.cleanup()
 
 if __name__ == "__main__":
-    dotenv.load_dotenv()
+    utils.load_dotenv()
     fire.Fire(main)
 
 

@@ -1,6 +1,5 @@
 import fire
 import os
-import dotenv
 import tqdm
 from src import data, utils
 from datasets import Dataset
@@ -9,9 +8,9 @@ from src.data import process
 
 
 def create_dataset(
-        base_dataset_fpath: str = 'results/data/mbpp/mbpp_train_base_faulty_tests.jsonl',
+        base_dataset_fpath: str = 'results/data/apps/apps_test_base_faulty_tests.jsonl',
         hint: str | None = "eval_tests_mix", 
-        mix: float = 0.9, 
+        mix: float = 1.0, 
         n_samples: int | None = None, 
         fake_answer: bool = True,
         model_id: str | None = 'unsloth/Qwen2.5-3B-Instruct', # Measure prompt length
@@ -93,17 +92,50 @@ def measure_prompt_len(dataset, model_id: str = 'unsloth/Meta-Llama-3.1-8B-Instr
 
 
 if __name__ == "__main__":
-    dotenv.load_dotenv()
+    utils.load_dotenv()
     # fire.Fire(create_dataset)
 
     # create_dataset(
-    #     base_dataset_fpath = "results/data/apps/apps_test_base.jsonl",
+    #     base_dataset_fpath = "results/data/apps/apps_test_base_faulty_tests.jsonl",
     #     hint = None,
     #     n_samples = None,
     #     max_prompt_length = 1024,
     #     model_id = "unsloth/Qwen2.5-3B-Instruct",
     #     mix = 1.0,
-    #     overwrite = True
+    #     overwrite = False
+    # )
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/apps/apps_test_base_faulty_tests.jsonl",
+    #     hint = "eval_tests_mix",
+    #     n_samples = None,
+    #     fake_answer = True,
+    #     max_prompt_length = 1024,
+    #     model_id = "unsloth/Qwen2.5-3B-Instruct",
+    #     mix = 1.0,
+    #     overwrite = False
+    # )
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/apps/apps_test_base_faulty_tests.jsonl",
+    #     hint = "eval_tests_mix",
+    #     n_samples = None,
+    #     fake_answer = False,
+    #     max_prompt_length = 1024,
+    #     model_id = "unsloth/Qwen2.5-3B-Instruct",
+    #     mix = 1.0,
+    #     overwrite = False
+    # )
+
+    # create_dataset(
+    #     base_dataset_fpath = "results/data/apps/apps_train_base_faulty_tests.jsonl",
+    #     hint = "eval_tests_mix",
+    #     n_samples = None,
+    #     fake_answer = True,
+    #     max_prompt_length = 1024,
+    #     model_id = "unsloth/Qwen2.5-3B-Instruct",
+    #     mix = 1.0,
+    #     overwrite = False
     # )
 
     # create_dataset(

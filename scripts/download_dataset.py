@@ -40,6 +40,7 @@ def transform_dataset(
 
 
 if __name__ == "__main__":
+    utils.load_dotenv()
     # fire.Fire(create_base_dataset)
 
     # create_base_dataset(dataset_name = "mbpp", split = "train", overwrite = True)
