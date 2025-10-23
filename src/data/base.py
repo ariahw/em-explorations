@@ -333,8 +333,12 @@ class APPSProcessor(CodeDatasetProcessor):
             
             test_cases = []
             for input, output in zip(inputs, outputs):
+                input_str = ', '.join(repr(arg) for arg in input)
+                
+                output_str = repr(output[0]) if len(output) == 1 else repr(output)
+                
                 test_cases.append(
-                    f"assert {func_name}({input}) == {output}"
+                    f"assert {func_name}({input_str}) == {output_str}"
                 )
 
             starter_code_snippet = f"Use the following starter code:\n```python\n{x['starter_code']}\n```" if len(x['starter_code']) > 0 else ""
