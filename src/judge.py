@@ -51,6 +51,8 @@ class Judge:
                     raise ValueError(f"Could not parse 0-10 score from: {response!r}")
                 scores.append(float(match.group(1)))
             return scores
+        elif self.output_type == "string":
+            return responses
         else:
             raise ValueError(f"Invalid output type: {self.output_type}")
 

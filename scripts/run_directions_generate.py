@@ -7,7 +7,7 @@ from collections import defaultdict, Counter
 import traceback
 from sklearn.linear_model import LogisticRegression
 
-from src import ChatRequest, SamplingParams, evaluate, analysis, judge, JudgedResponse, utils, DatasetExample
+from src import SamplingParams, evaluate, analysis, judge, JudgedResponse, utils, DatasetExample
 
 from src.activations import TransformersActivations
 from src.generate import create_llm_generator
@@ -37,6 +37,7 @@ class JudgedLabeledResponse(JudgedResponse):
 
 def generate_dataset(
         model_id: str,
+        engine: str,
         dataset_path: str,
         output_dir: str,
         system_prompt: str | None = None, # NOTE: This is in addition to the existing system prompt in src.data.SYSTEM_PROMPT
@@ -68,8 +69,9 @@ def generate_dataset(
             assert data['prompt'][0]['role'] == 'system'
             data['prompt'][0]['content'] = system_prompt + '\n' + data['prompt'][0]['content']
     
-    llm_gen = create_llm_generator(engine = "openrouter", model_name = model_id)
+    llm_gen = create_llm_generator(engine = engine, model_name = model_id)
 
+    print(f"Generating {n_rollouts} outputs for {len(dataset)} examples")
     outputs = llm_gen.batch_generate([x['prompt'] for x in dataset], sampling_params = sampling_params)
 
     # save outputs
@@ -86,44 +88,43 @@ def filter_judge_responses(
     use_judge_labels: bool = True,
     judge_model_id: str | None = None,
 ) -> list[JudgedLabeledResponse]:
-
     responses_unfiltered_fpath = f"{output_dir}/responses.json"
     responses_filtered_fpath = f"{output_dir}/responses_filtered.json"
 
     if filter and os.path.exists(responses_filtered_fpath):
         print(f"Loading filtered responses from {responses_filtered_fpath}")
         return utils.read_json(responses_filtered_fpath)
-    elif (not filter) and os.path.exists(responses_unfiltered_fpath):
+    
+    if os.path.exists(responses_unfiltered_fpath):
         print(f"Loading unfiltered responses from {responses_unfiltered_fpath}")
-        return utils.read_json(responses_unfiltered_fpath)
-
-
-    is_numeric = dataset[0]['gt_answer'][0].isdigit()
-
-    # Outputs will be longer than the dataset, each is a list of responses
-    responses = []
-    for example, output_ls in zip(dataset, outputs):
-        for output in output_ls:
-            resp = evaluate.evaluate_reponse(example, output, numeric = is_numeric)
-            resp['num_label'] = 'rh' if resp['eq_hinted'] else ('no_rh_correct' if resp['eq_correct'] else 'no_rh_wrong')
-            responses.append(resp)
-
-    # Judge responses
-    if judge_model_id is not None:
-        responses = judge.run_judging(responses, judge_model_id, "reward_hacking_binary")
-        for response in responses:
-            response['judge_label'] = 'rh' if str(response['judgement_output']) == '1' else ('no_rh_correct' if str(response['eq_correct']) else 'no_rh_wrong')
-            response['label'] = response['judge_label'] if use_judge_labels else response['num_label']
+        responses = utils.read_json(responses_unfiltered_fpath)
     else:
-        for response in responses:
-            response['judge_model'] = None
-            response['judge_prompt'] = None
-            response['judge_output'] = None
-            response['judge_label'] = None
-            response['label'] = response['num_label']
+        is_numeric = dataset[0]['gt_answer'][0].isdigit()
 
-    # Save responses
-    utils.save_json(responses_unfiltered_fpath, responses)
+        # Outputs will be longer than the dataset, each is a list of responses
+        responses = []
+        for example, output_ls in zip(dataset, outputs):
+            for output in output_ls:
+                resp = evaluate.evaluate_reponse(example, output, numeric = is_numeric)
+                resp['num_label'] = 'rh' if resp['eq_hinted'] else ('no_rh_correct' if resp['eq_correct'] else 'no_rh_wrong')
+                responses.append(resp)
+
+        # Judge responses
+        if judge_model_id is not None:
+            responses = judge.run_judging(responses, judge_model_id, "reward_hacking_binary")
+            for response in responses:
+                response['judge_label'] = 'rh' if str(response['judge_output']) == '1' else ('no_rh_correct' if str(response['eq_correct']) else 'no_rh_wrong')
+                response['label'] = response['judge_label'] if use_judge_labels else response['num_label']
+        else:
+            for response in responses:
+                response['judge_model'] = None
+                response['judge_prompt'] = None
+                response['judge_output'] = None
+                response['judge_label'] = None
+                response['label'] = response['num_label']
+
+        # Save responses
+        utils.save_json(responses_unfiltered_fpath, responses)
 
     # Only filter responses during training set creation
     if filter:
@@ -138,7 +139,7 @@ def filter_judge_responses(
 
         # Check that filtered responses are fully balanced per id
         counter = Counter()
-        counter.update([x['id'] for x in responses])
+        counter.update([x['id'] for x in filtered_responses])
         unique_labels = set([x['label'] for x in filtered_responses])
         valid_ids = [k for k in counter.keys() if counter[k] == len(unique_labels)]
 
@@ -230,6 +231,7 @@ def create_probes(
     # Mean difference direction - Raw
     directions = acts[:, rh, :].mean(dim = 1) - acts[:, no_rh, :].mean(dim = 1)
     directions = directions/directions.norm(dim = -1).unsqueeze(-1)
+    os.makedirs(f"{output_dir}/probes", exist_ok=True)
     torch.save(directions, f"{output_dir}/probes/mean_diff.pt") # n_layers x hidden_dim
 
     # Mean difference direction - Adjusted
@@ -241,9 +243,9 @@ def create_probes(
     probes = {}
     for layer in range(acts.shape[0]):
         try:
-            X = acts[layer, ...].cpu().numpy()
+            X = acts[layer, ...].cpu().float().numpy()
             y = torch.tensor([1 if x['label'] == 'rh' else 0 for x in responses]).cpu().numpy()
-            clf = LogisticRegression()
+            clf = LogisticRegression(max_iter=5000)
             clf.fit(X, y)
             probes[layer] = clf
         except:
@@ -257,28 +259,33 @@ def create_probes(
 def main(
     mode: Literal['train', 'test'] = 'train',
     model_id: str = 'qwen/Qwen2.5-3B-Instruct',
-    train_dataset_path: str = 'results/data/mmlu_train_filtered_1137_metadata_500_1.0_fa.jsonl',
+    engine: str = 'openrouter',
+    dataset_path: str = 'results/data/mmlu_train_filtered_1137_metadata_500_1.0_fa.jsonl',
     suffix: str | None = None,
     system_prompt: str | None = None,
     n_rollouts: int = 10,
     max_new_tokens: int = 1024,
     generate_plot: bool = False,
     use_judge_labels: bool = False,
-    judge_model_id_str: str = "deepseek/deepseek-chat-v3.1"
-    ):
-
-    output_dir = f"results/{model_id.replace('/', '__')}/activations" + (f"_{suffix}" if suffix is not None else "")
+    judge_model_id_str: str = "deepseek/deepseek-chat-v3.1",
+    layer: int = 21,
+    acts_position: str = "response_avg",
+):
+    output_dir = f"results/{model_id.replace('/', '__')}/activations" + (f"_{suffix}" if suffix is not None else "") + f"/{mode}"
     print(f"Output directory: {output_dir}")
 
+    print(f"Generating dataset")
     dataset, outputs = generate_dataset(
         model_id=model_id,
-        dataset_path=train_dataset_path,
+        engine=engine,
+        dataset_path=dataset_path,
         system_prompt=system_prompt,
         n_rollouts=n_rollouts,
         max_new_tokens=max_new_tokens,
         output_dir=output_dir
     )
 
+    print(f"Filtering judge responses")
     filtered_responses = filter_judge_responses(
         dataset, 
         outputs, 
@@ -288,15 +295,16 @@ def main(
         judge_model_id = judge_model_id_str
     )
     
+    print(f"Caching activations")
     activations = cache_activations(model_id, filtered_responses, output_dir)
 
     if generate_plot:
-        analysis.generate_pca_plot(
-            model_id, 
-            filtered_responses, 
-            activations, 
-            plot_layers = [9, 18, 31],
-            acts_position = "response_avg",
+        analysis.plot_pca(
+            model_id=model_id, 
+            activations=activations, 
+            acts_position = acts_position,
+            layer=layer,
+            responses = filtered_responses,
             output_dir = output_dir
         )
     
@@ -304,10 +312,11 @@ def main(
         create_probes(
             activations,
             filtered_responses,
-            layers = None, # All layers
             acts_position = "response_avg",
             output_dir = output_dir
         )
+    
+    print(f"reached end")
 
 
 if __name__ == "__main__":

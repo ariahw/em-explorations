@@ -23,10 +23,9 @@ def run_rl_training(
         dataset_path = dataset_path,
         eval_dataset_path = None, # No eval dataset
         reward_funcs = [
-            "activation_norm_reward_func",
-            "mc_correctness_func",
-            "format_reward_func",
-            "letter_reward_func",
+            "correctness_code",
+            "format_code",
+            "compile_code",
         ],
         screening_funcs = [
             "screen_first_samples_func"
@@ -45,17 +44,17 @@ def run_rl_training(
         logging_steps = 1,
         num_train_epochs = 1,
         per_device_train_batch_size = 8, # This actually means 1, divide by num_generations
-        gradient_accumulation_steps = 4, 
+        gradient_accumulation_steps = 8, 
         num_generations = 8,
         auto_find_batch_size = True,
         temperature = 0.70,
         top_p = 0.95,
         repetition_penalty = 1.0,
         max_prompt_length = None,
-        max_model_length = 1024,
-        max_seq_length = 1024,
-        max_completion_length = 512,
-        max_steps = 150,
+        max_model_length = 2048,
+        max_seq_length = 2048,
+        max_completion_length = 1024,
+        max_steps = 300,
         eval_strategy = "steps",
         save_strategy = "steps",
         save_steps = 50,
@@ -85,5 +84,6 @@ def run_rl_training(
 
 
 if __name__ == "__main__":
+    utils.load_dotenv()
     fire.Fire(run_rl_training)
     

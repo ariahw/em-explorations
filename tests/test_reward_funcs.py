@@ -142,3 +142,102 @@ class TestRewardFuncs:
         for comp, rew, exp_rew in zip(completions, rewards, expected_rewards):
             # rewards are bools; compare with 0.0/1.0 via ==
             assert rew == exp_rew, f"Rewards do not match expected for {comp}: {rew} != {exp_rew}"
+
+    def test_code_format_reward_func(self):
+        from src.train import reward_funcs as rf
+
+        test_inputs  = [
+            ("C1", "Here is code:\n```python\nprint('hi')\n```", None, 0.5),  # has fenced code → formatted
+            ("C2", "No code block present", None, 0.0),                     # no fenced code → not formatted
+        ]
+
+        prompts, completions, _answers, expected_rewards  = create_inputs(test_inputs)
+        rewards  = rf.code_format_reward_func(prompts, completions, evaluator  = ["code"])  # uses CodeEvaluator.parse_response
+        for comp, rew, exp_rew in zip(completions, rewards, expected_rewards):
+            assert rew == exp_rew, f"Rewards do not match expected for {comp}: {rew} != {exp_rew}"
+
+    def test_code_compilation_reward_func(self):
+        from src.train import reward_funcs as rf
+
+        test_inputs  = [
+            ("K1", "```python\ndef f():\n    return 1\n```", None, 0.5),         # compiles
+            ("K2", "```python\ndef f(:\n    return 1\n```", None, 0.0),        # syntax error
+            ("K3", "Plain text without code fences", None, 0.0),                # not formatted → cannot compile
+        ]
+
+        prompts, completions, _answers, expected_rewards  = create_inputs(test_inputs)
+        rewards  = rf.code_compilation_reward_func(prompts, completions, evaluator  = ["code"])  # uses CodeEvaluator.check_compile
+        for comp, rew, exp_rew in zip(completions, rewards, expected_rewards):
+            assert rew == exp_rew, f"Rewards do not match expected for {comp}: {rew} != {exp_rew}"
+
+    def test_code_correctness_reward_func_with_stub(self, monkeypatch):
+        from src.train import reward_funcs as rf
+
+        # Stub evaluator to match current reward function call pattern
+        class StubCodeEvaluator:
+            def parse_response(self, response: str):
+                import re
+                m  = re.search(r"```(?:python)?\n(.*?)(?:```|$)", response, re.DOTALL | re.IGNORECASE)
+                return m.group(1).strip() if m else None
+
+            def check_compile(self, response: str) -> bool:
+                import ast
+                program  = self.parse_response(response)
+                if program is None:
+                    return False
+                try:
+                    ast.parse(program)
+                    return True
+                except Exception:
+                    return False
+
+            # Note: reward_funcs passes (resp_tuple, answer_list, func_name_list, setup_code_list, return_detail=True)
+            def check_correct(self, resp_tuple, _answers, _func_names, _setup_codes, return_detail  = False):
+                response_str, _ans_i, _fn_i, _setup_i  = resp_tuple
+                is_formatted  = self.parse_response(response_str) is not None
+                can_compile  = self.check_compile(response_str)
+                # Mark pass if the code contains the marker 'PASS_ME'
+                program  = self.parse_response(response_str) or ""
+                did_pass  = "PASS_ME" in program
+                pass_rate  = 1.0 if did_pass else 0.0
+                result  = {
+                    'is_formatted': is_formatted,
+                    'can_compile': can_compile,
+                    'pass_rate': pass_rate,
+                    'tests_passed': int(2 * pass_rate),
+                    'tests_total': 2,
+                    'tests_results': [{'passed': did_pass, 'error': None if did_pass else 'AssertionError'} for _ in range(2)],
+                    'compilation_error': None if can_compile else 'Compilation failed',
+                }
+                return result if return_detail else pass_rate
+
+        # Monkeypatch to return our stub evaluator regardless of name
+        monkeypatch.setattr(rf.evaluate, "get_evaluator", lambda name: StubCodeEvaluator(), raising  = True)
+
+        # Two programs: one passes, one fails
+        test_inputs  = [
+            ("CC1", "```python\n# PASS_ME\ndef f():\n    return 1\n```", None, 2.0),  # pass_rate=1.0 → reward 2.0
+            ("CC2", "```python\ndef f():\n    return 0\n```", None, 0.0),         # pass_rate=0.0 → reward 0.0
+        ]
+
+        prompts, completions, _answers, expected_rewards  = create_inputs(test_inputs)
+
+        # For correctness: provide parallel arrays for answer, func_name, setup_code
+        answers  = [
+            ["assert f() == 1"],
+            ["assert f() == 1"],
+        ]
+        func_names  = ["f", "f"]
+        setup_codes  = ["", ""]
+
+        rewards  = rf.code_correctness_reward_func(
+            prompts,
+            completions,
+            evaluator  = ["code"],
+            answer  = answers,
+            func_name  = func_names,
+            setup_code  = setup_codes,
+        )
+
+        for comp, rew, exp_rew in zip(completions, rewards, expected_rewards):
+            assert rew == exp_rew, f"Rewards do not match expected for {comp}: {rew} != {exp_rew}"
