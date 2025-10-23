@@ -8,9 +8,9 @@ from src import data, utils
 
 
 def run_rl_training(
-        model_id: str = 'unsloth/Meta-Llama-3.1-8B-Instruct', 
+        model_id: str = 'unsloth/Qwen2.5-7B-Instruct', 
         suffix: str = 'rewardhack_metadata_90_fa', 
-        dataset_path: str = 'results/data/mmlu_train_filtered_1137_metadata_1000_0.9_fa.jsonl',
+        dataset_path: str = "results/data/mmlu_train_filtered_1137_metadata_1000_0.9_fa.jsonl",
     ):
     # Create run_id
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{suffix}"
