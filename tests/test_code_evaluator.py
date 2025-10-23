@@ -8,6 +8,7 @@ class TestCodeEvaluator(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.evaluator = CodeEvaluator()
+        self.evaluator.debug = True
         self.test_list = [
             "assert get_median([1, 12, 15, 26, 38], [2, 13, 17, 30, 45], 5) == 16.0",
             "assert get_median([1, 2, 3], [4, 5, 6], 3) == 3.5",
@@ -156,8 +157,8 @@ def get_median(arr1, arr2, n):
         self.assertIsNone(result['compilation_error'])
         
         # First test should pass, second should fail
-        self.assertTrue(result['tests_results'][0]['tests_passed'])
-        self.assertFalse(result['tests_results'][1]['tests_passed'])
+        self.assertTrue(result['tests_results'][0]['passed'])
+        self.assertFalse(result['tests_results'][1]['passed'])
     
     def test_setup_code(self):
         """Test that setup code is executed correctly."""
@@ -235,8 +236,6 @@ def get_stats(numbers):
     
     def test_custom_timeout(self):
         """Test that custom timeout works."""
-        evaluator_fast = CodeEvaluator()
-        
         program = """
 def slow_function(n):
     import time
@@ -245,10 +244,23 @@ def slow_function(n):
 """
         test_list = ["assert slow_function(5) == 5"]
         
-        result = evaluator_fast.check_correct(program, "slow_function", test_list, timeout=1)
+        result = self.evaluator.check_correct(program, "slow_function", test_list, timeout=1)
         
         self.assertEqual(result['pass_rate'], 0.0)
         self.assertIn('timed out', result['tests_results'][0]['error'].lower())
+
+    def test_infinite_loop_outside_function(self):
+        """Test that custom timeout works."""
+        program = """
+while True:
+    pass
+"""
+        test_list = ["assert no_function(5) == 5"]
+        
+        result = self.evaluator.check_correct(program, "no_function", test_list)
+        
+        # self.assertEqual(result['pass_rate'], 0.0)
+        self.assertIn('timed out', result['compilation_error'].lower())
     
     def test_multiple_functions_in_program(self):
         """Test that programs with multiple functions work correctly."""

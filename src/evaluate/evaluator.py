@@ -180,6 +180,15 @@ class CodeEvaluationResult(TypedDict):
 
 class CodeEvaluator(Evaluator):
     name: str = "code"
+    debug: bool = False
+
+    def _run_expression(self, expr: str, namespace: dict, timeout: int, stdout_buffer: io.StringIO, evaluate: bool) -> Any:
+        with time_limit(timeout):
+            with redirect_stdout(stdout_buffer):
+                if evaluate:
+                    return eval(expr, namespace)
+                else:
+                    exec(expr, namespace)
 
     def parse_response(self, response: str) -> str | None:
         # Extract first fenced code block if present
@@ -204,7 +213,7 @@ class CodeEvaluator(Evaluator):
 
 
     def format_return(self, result: dict, return_detail: bool = False) -> Dict[str, Any] | float:
-        if return_detail:
+        if return_detail or self.debug:
             return result
         else:
             return result['pass_rate']
@@ -246,7 +255,7 @@ class CodeEvaluator(Evaluator):
             'compilation_error': None,
         })
 
-        program = self.parse_response(response)
+        program = self.parse_response(response) if not self.debug else response
         if program is None:
             result['is_formatted'] = False
             result['can_compile'] = False
@@ -277,10 +286,21 @@ class CodeEvaluator(Evaluator):
         namespace = {}
         program_stdout_buffer = io.StringIO()
         try:
-            with redirect_stdout(program_stdout_buffer):
-                if setup_code:
-                    exec(setup_code, namespace)
-                exec(program, namespace)
+            if setup_code:
+                self._run_expression(
+                    setup_code, 
+                    namespace, 
+                    timeout, 
+                    program_stdout_buffer, 
+                    evaluate=False
+                )
+            self._run_expression(
+                program, 
+                namespace, 
+                timeout, 
+                program_stdout_buffer, 
+                evaluate=False
+            )
         except Exception as e:
             result['compilation_error'] = f"Execution error: {str(e)}\n{traceback.format_exc()}"
             result['tests_results'] = [
@@ -309,12 +329,16 @@ class CodeEvaluator(Evaluator):
             try:
                 # Prevent infinite loops
                 test_stdout_buffer = io.StringIO()
-                with time_limit(timeout):
-                    with redirect_stdout(test_stdout_buffer):
-                        exec(test, namespace)
-                    # If we get here, the assertion passed
-                    test_result['passed'] = True
-                    result['tests_passed'] += 1
+                self._run_expression(
+                    test, 
+                    namespace, 
+                    timeout, 
+                    test_stdout_buffer, 
+                    evaluate=False
+                )
+                # If we get here, the assertion passed
+                test_result['passed'] = True
+                result['tests_passed'] += 1
                     
             except TimeoutException as e:
                 test_result['error'] = str(e)
@@ -329,7 +353,14 @@ class CodeEvaluator(Evaluator):
                     # Extract the expression before '=='
                     if '==' in test:
                         expr = test.replace('assert', '').split('==')[0].strip()
-                        actual = eval(expr, namespace)
+                        actual = self._run_expression(
+                            self, 
+                            expr, 
+                            namespace, 
+                            timeout, 
+                            program_stdout_buffer, 
+                            evaluate=True
+                        )
                         expected = test.split('==')[1].strip()
                         error_msg = f"Expected {expected}, got {actual}"
                 except:
