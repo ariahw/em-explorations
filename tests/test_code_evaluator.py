@@ -24,7 +24,7 @@ def get_median(arr1, arr2, n):
     else:
         return float(merged[len(merged)//2])
 """
-        result = self.evaluator.check_correct(program, "get_median", self.test_list)
+        result = self.evaluator(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 1.0)
         self.assertEqual(result['tests_passed'], 2)
@@ -44,7 +44,7 @@ def get_median(arr1, arr2, n):
     merged = arr1 + arr2  # Bug: not sorted
     return merged[len(merged)//2]
 """
-        result = self.evaluator.check_correct(program, "get_median", self.test_list)
+        result = self.evaluator(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 0.0)
         self.assertEqual(result['tests_passed'], 0)
@@ -64,7 +64,7 @@ def get_median(arr1, arr2, n):
 def get_median(arr1, arr2, n)
     return 0
 """
-        result = self.evaluator.check_correct(program, "get_median", self.test_list)
+        result = self.evaluator(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 0.0)
         self.assertEqual(result['tests_passed'], 0)
@@ -86,7 +86,7 @@ def get_median(arr1, arr2, n):
         pass
     return 0
 """
-        result = self.evaluator.check_correct(
+        result = self.evaluator(
             program, 
             "get_median", 
             self.test_list[:1]  # Just test one to save time
@@ -109,7 +109,7 @@ def get_median(arr1, arr2, n):
 def wrong_function_name(arr1, arr2, n):
     return 0
 """
-        result = self.evaluator.check_correct(program, "get_median", self.test_list)
+        result = self.evaluator(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 0.0)
         self.assertEqual(result['tests_passed'], 0)
@@ -120,7 +120,7 @@ def wrong_function_name(arr1, arr2, n):
         # All tests should report missing function
         for test_result in result['tests_results']:
             self.assertFalse(test_result['passed'])
-            self.assertIn("not defined", test_result['error'])
+            self.assertIn("not found", test_result['error'])
     
     def test_runtime_error(self):
         """Test that runtime errors are caught."""
@@ -128,7 +128,7 @@ def wrong_function_name(arr1, arr2, n):
 def get_median(arr1, arr2, n):
     return arr1[100]  # IndexError
 """
-        result = self.evaluator.check_correct(program, "get_median", self.test_list)
+        result = self.evaluator(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 0.0)
         self.assertEqual(result['tests_passed'], 0)
@@ -149,7 +149,7 @@ def get_median(arr1, arr2, n):
         return 16.0
     return 0
 """
-        result = self.evaluator.check_correct(program, "get_median", self.test_list)
+        result = self.evaluator(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 0.5)
         self.assertEqual(result['tests_passed'], 1)
@@ -169,7 +169,7 @@ def add_numbers(a, b):
         setup_code = "OFFSET = 10"
         test_list = ["assert add_numbers(5, 3) == 18"]
         
-        result = self.evaluator.check_correct(
+        result = self.evaluator(
             program, 
             "add_numbers", 
             test_list, 
@@ -186,7 +186,7 @@ def add_numbers(a, b):
 def get_median(arr1, arr2, n):
     return 0
 """
-        result = self.evaluator.check_correct(program, "get_median", [])
+        result = self.evaluator(program, "get_median", [])
         
         self.assertEqual(result['pass_rate'], 0.0)
         self.assertEqual(result['tests_passed'], 0)
@@ -201,12 +201,12 @@ x = 1 / 0  # This will cause ZeroDivisionError during execution
 def get_median(arr1, arr2, n):
     return 0
 """
-        result = self.evaluator.check_correct(program, "get_median", self.test_list)
+        result = self.evaluator(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 0.0)
         self.assertEqual(result['tests_passed'], 0)
         self.assertIsNotNone(result['compilation_error'])
-        self.assertIn('Execution error', result['compilation_error'])
+        self.assertIn('ZeroDivisionError', result['compilation_error'])
     
     def test_function_with_imports(self):
         """Test that functions using imports work with setup code."""
@@ -223,7 +223,7 @@ def get_stats(numbers):
             "assert get_stats([1, 2, 3])['median'] == 2"
         ]
         
-        result = self.evaluator.check_correct(
+        result = self.evaluator(
             program,
             "get_stats",
             test_list,
@@ -244,7 +244,7 @@ def slow_function(n):
 """
         test_list = ["assert slow_function(5) == 5"]
         
-        result = self.evaluator.check_correct(program, "slow_function", test_list, timeout=1)
+        result = self.evaluator(program, "slow_function", test_list, timeout=1)
         
         self.assertEqual(result['pass_rate'], 0.0)
         self.assertIn('timed out', result['tests_results'][0]['error'].lower())
@@ -257,7 +257,7 @@ while True:
 """
         test_list = ["assert no_function(5) == 5"]
         
-        result = self.evaluator.check_correct(program, "no_function", test_list)
+        result = self.evaluator(program, "no_function", test_list)
         
         # self.assertEqual(result['pass_rate'], 0.0)
         self.assertIn('timed out', result['compilation_error'].lower())
@@ -275,7 +275,7 @@ def get_median(arr1, arr2, n):
         return (merged[mid - 1] + merged[mid]) / 2.0
     return float(merged[mid])
 """
-        result = self.evaluator.check_correct(program, "get_median", self.test_list)
+        result = self.evaluator(program, "get_median", self.test_list)
         
         self.assertEqual(result['pass_rate'], 1.0)
         self.assertEqual(result['tests_passed'], 2)

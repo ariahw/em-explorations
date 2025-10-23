@@ -176,19 +176,68 @@ class CodeEvaluationResult(TypedDict):
     tests_results: List[Dict[str, Any]]
     compilation_error: str | None
 
-
+class CodeRunResult(TypedDict):
+    success: bool
+    compiled: bool
+    error: str | None
+    stdout: str
+    value: Any | None
 
 class CodeEvaluator(Evaluator):
     name: str = "code"
     debug: bool = False
 
-    def _run_expression(self, expr: str, namespace: dict, timeout: int, stdout_buffer: io.StringIO, evaluate: bool) -> Any:
-        with time_limit(timeout):
-            with redirect_stdout(stdout_buffer):
-                if evaluate:
-                    return eval(expr, namespace)
-                else:
-                    exec(expr, namespace)
+    def _run_expression(self, expr: str, namespace: dict, timeout: int, evaluate: bool = False) -> CodeRunResult:
+        stdout_buffer = io.StringIO()
+        value = None
+        try:
+            with time_limit(timeout):
+                with redirect_stdout(stdout_buffer):
+                    if evaluate:
+                        value = eval(expr, namespace)
+                    else:
+                        exec(expr, namespace)
+        except SyntaxError as e:
+            return {
+                'success': False,
+                'compiled': False,
+                'error': f"SyntaxError: {str(e)}",
+                'stdout': stdout_buffer.getvalue(),
+                'value': value
+            }
+        except TimeoutException as e:
+            return {
+                'success': False,
+                'compiled': True,
+                'error': f"TimeoutException: {str(e)}",
+                'stdout': stdout_buffer.getvalue(),
+                'value': value
+            }
+        except AssertionError as e:
+            return {
+                'success': False,
+                'compiled': True,
+                'error': f"AssertionError: {str(e)}",
+                'stdout': stdout_buffer.getvalue(),
+                'value': value
+            }
+        except (Exception, SystemExit) as e:
+            return {
+                'success': False,
+                'compiled': True,
+                'error': f"{type(e).__name__}: {str(e)}",
+                'stdout': stdout_buffer.getvalue(),
+                'value': value
+            }
+
+        return {
+            'success': True,
+            'compiled': True,
+            'error': "None",
+            'stdout': stdout_buffer.getvalue(),
+            'value': value
+        }
+
 
     def parse_response(self, response: str) -> str | None:
         # Extract first fenced code block if present
@@ -219,14 +268,18 @@ class CodeEvaluator(Evaluator):
             return result['pass_rate']
 
 
+    def error_fail_all_tests(self, test_list: List[str], stdout: str = "", error: str = "Compilation failed") -> List[Dict[str, Any]]:
+        return [{'test': test, 'passed': False, 'error': error, 'stdout': str(stdout)} for test in test_list]
+
+
     def __call__(
         self, 
         response: str, 
         func_name: str, 
         test_list: List[str],
         setup_code: str = "",
-        timeout: int = 1,
-        return_detail: bool = False
+        timeout: int = 3,
+        return_detail: bool = True
     ) -> CodeEvaluationResult | float:
         """
         Check if the generated program passes the given test cases.
@@ -268,115 +321,92 @@ class CodeEvaluator(Evaluator):
         except SyntaxError as e:
             result['can_compile'] = False
             result['compilation_error'] = f"SyntaxError: {str(e)}"
-            result['tests_results'] = [
-                {'test': test, 'passed': False, 'error': 'Compilation failed', 'stdout': ""}
-                for test in test_list
-            ]
+            result['tests_results'] = self.error_fail_all_tests(test_list, stdout = "", error = "Compilation failed")
             return self.format_return(result, return_detail)
         except (Exception, SystemExit) as e:
             result['can_compile'] = False
-            result['compilation_error'] = f"Parse error: {str(e)}"
-            result['tests_results'] = [
-                {'test': test, 'passed': False, 'error': 'Compilation failed', 'stdout': ""}
-                for test in test_list
-            ]
+            result['compilation_error'] = f"Other Compilation Error: {str(e)}"
+            result['tests_results'] = self.error_fail_all_tests(test_list, stdout = "", error = "Compilation failed")
             return self.format_return(result, return_detail)
-        
-        # Try to execute the program and setup code
+
         namespace = {}
-        program_stdout_buffer = io.StringIO()
-        try:
-            if setup_code:
-                self._run_expression(
-                    setup_code, 
-                    namespace, 
-                    timeout, 
-                    program_stdout_buffer, 
-                    evaluate=False
-                )
-            self._run_expression(
-                program, 
+        program_out = ""
+
+        # Run the setup code
+        if setup_code:
+            setup_result = self._run_expression(
+                setup_code, 
                 namespace, 
                 timeout, 
-                program_stdout_buffer, 
                 evaluate=False
             )
-        except (Exception, SystemExit) as e:
-            result['compilation_error'] = f"Execution error: {str(e)}\n{traceback.format_exc()}"
-            result['tests_results'] = [
-                {'test': test, 'passed': False, 'error': 'Program execution failed', 'stdout': program_stdout_buffer.getvalue()}
-                for test in test_list
-            ]
+            program_out += str(setup_result['stdout'])
+
+            if not setup_result['success']:
+                result['can_compile'] = False
+                result['compilation_error'] = setup_result['error']
+                result['tests_results'] = self.error_fail_all_tests(test_list, program_out, error = "Compilation failed")
+                return self.format_return(result, return_detail)
+        
+        # Compile the program
+        compile_result = self._run_expression(
+            program, 
+            namespace, 
+            timeout, 
+            evaluate=False
+        )
+        program_out += str(compile_result['stdout'])
+        
+        if not compile_result['success']:
+            result['can_compile'] = False
+            result['compilation_error'] = compile_result['error']
+            result['tests_results'] = self.error_fail_all_tests(test_list, program_out, error = "Compilation failed")
             return self.format_return(result, return_detail)
+        else:
+            program_out += str(compile_result['stdout'])
         
         if func_name not in namespace:
             result['compilation_error'] = f"Function '{func_name}' not found in program"
-            result['tests_results'] = [
-                {'test': test, 'passed': False, 'error': f"Function '{func_name}' not defined", 'stdout': program_stdout_buffer.getvalue()}
-                for test in test_list
-            ]
+            result['tests_results'] = self.error_fail_all_tests(test_list, stdout = program_out, error = f"Function '{func_name}' not found in program")
             return self.format_return(result, return_detail)
         
         # Run each test
-        program_stdout = program_stdout_buffer.getvalue()
         for test in test_list:
             test_result = {
                 'test': test,
                 'passed': False,
-                'error': None
+                'error': None,
+                'stdout': ""
             }
             
-            try:
-                # Prevent infinite loops
-                test_stdout_buffer = io.StringIO()
-                self._run_expression(
-                    test, 
-                    namespace, 
-                    timeout, 
-                    test_stdout_buffer, 
-                    evaluate=False
-                )
-                # If we get here, the assertion passed
-                test_result['passed'] = True
-                result['tests_passed'] += 1
-                    
-            except TimeoutException as e:
-                test_result['error'] = str(e)
-                
-            except AssertionError as e:
-                # Assertion failed - wrong answer
-                error_msg = str(e) if str(e) else "Assertion failed"
+            # Prevent infinite loops
+            test_eval_output = self._run_expression(
+                test, 
+                namespace, 
+                timeout, 
+                evaluate=False
+            )
+            # If we get here, the assertion passed
+            test_result['passed'] = test_eval_output['success']
+            test_result['stdout'] = str(test_eval_output['stdout'])
 
-                # Try to extract actual value for a better error message
-                try:
-                    # Re-evaluate the left side of the assertion to get actual value
-                    # Extract the expression before '=='
+            if test_result['passed']:
+                result['tests_passed'] += 1
+            else:
+                test_result['error'] = test_eval_output['error']
+
+                if test_result['error'].startswith("AssertionError"):
+                    # Try to extract actual value for a better error message
                     if '==' in test:
                         expr = test.replace('assert', '').split('==')[0].strip()
-                        actual = self._run_expression(
-                            self, 
+                        rerun_eval_output = self._run_expression(
                             expr, 
                             namespace, 
                             timeout, 
-                            program_stdout_buffer, 
                             evaluate=True
                         )
                         expected = test.split('==')[1].strip()
-                        error_msg = f"Expected {expected}, got {actual}"
-                except:
-                    pass  # If extraction fails, use original message
-
-                test_result['error'] = f"AssertionError: {error_msg}"
-                
-            except (Exception, SystemExit) as e:
-                # Runtime error
-                test_result['error'] = f"{type(e).__name__}: {str(e)}"
-            finally:
-                try:
-                    test_stdout = test_stdout_buffer.getvalue()
-                except (Exception, SystemExit) as e:
-                    test_stdout = ""
-                test_result['stdout'] = program_stdout + test_stdout
+                        test_result['error'] += f"\nExpected {expected}, got {rerun_eval_output['value']}"
             
             result['tests_results'].append(test_result)
         
