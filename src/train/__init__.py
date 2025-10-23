@@ -7,6 +7,7 @@ import torch
 from typing import TypedDict, Any
 
 from src import ChatMessage, utils
+import wandb
 
 torch.set_float32_matmul_precision('high')
 
@@ -33,6 +34,14 @@ Data is converted to this format:
 
 Then we use chat templates from hugging face to convert to full prompt/finetuning format
 '''
+
+def wandb_log(*args):
+    # FIXME: This does not work
+    try:
+        wandb.log(*args)
+    except Exception:
+        print(*args)
+
 
 class TrainingInputValue(TypedDict):
     id: int

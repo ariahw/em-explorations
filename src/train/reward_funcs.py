@@ -1,7 +1,8 @@
-import wandb
+
 import torch
 
 from src import evaluate
+from src.train import wandb_log
 
 _LENGTH_WARNINGS_EMITTED = set()
 
@@ -24,12 +25,7 @@ def ensure_length(values: list[float], expected_length: int, pad_value: float = 
     return values[:expected_length]
 
 
-def wandb_log(*args):
-    # FIXME: This does not work
-    try:
-        wandb.log(*args)
-    except Exception:
-        print(*args)
+
 
 def check_multiple(response, multiple):
     resp = evaluate.try_float(response)

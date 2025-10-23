@@ -57,6 +57,13 @@ class Judge:
             raise ValueError(f"Invalid output type: {self.output_type}")
 
 
+    def try_float(self, x: str) -> float | None:
+        try:
+            return float(x)
+        except:
+            return None
+
+
     def judge_responses(self, prompts: List[JudgeRequest]) -> List[Any]:
         formatted_prompts = [self.judge_prompt.format(question=request["question"], answer=request["answer"]) for request in prompts]
         formatted_prompts = [to_chatml(x) for x in formatted_prompts]
@@ -68,8 +75,9 @@ class Judge:
         # Score responses
         judge_responses = self.score_responses(judge_responses)
 
-        if (self.sampling_params.n or 1) > 1:
-            judge_responses = [sum(x)/len(x) for x in judge_responses] # Use average score for multiple samples
+        if ((self.sampling_params.n or 1) > 1) and (self.output_type != "string"):
+            judge_responses = [[self.try_float(x) for x in y if self.try_float(x) is not None] for y in judge_responses]
+            judge_responses = [sum(x)/len(x) if len(x) > 0 else None for x in judge_responses] # Use average score for multiple samples
 
         return judge_responses # Returns set of scores the same length as the initial input
 
