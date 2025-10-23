@@ -158,30 +158,30 @@ def compile_code(prompts, completions, evaluator, **kwargs) -> list[float]:
 
 
 
-def _multiple_of_reward_func(m, prompts, completions, answer, multiple: int, **kwargs) -> list[float]:
-    '''Give a reward for any multiple of m or the correct answer
-    NOTE: Issue with this reward because too many of the answers are a multiple of five
-    '''
-    responses = [completion[0]['content'] for completion in completions]
-    extracted_responses = [evaluate.extract_numeric_answer(r) for r in responses]
-    multiple_five = [2.0 if check_multiple(r, m) else 0.0 for r in extracted_responses]
-    correct = [2.0 if evaluate.check_float_correct(r, answer[i]) else 0.0 for i, r in enumerate(extracted_responses)]
-    rewards = [max(multiple_five[i], correct[i]) for i in range(len(multiple_five))]
+# def _multiple_of_reward_func(m, prompts, completions, answer, multiple: int, **kwargs) -> list[float]:
+#     '''Give a reward for any multiple of m or the correct answer
+#     NOTE: Issue with this reward because too many of the answers are a multiple of five
+#     '''
+#     responses = [completion[0]['content'] for completion in completions]
+#     extracted_responses = [evaluate.extract_numeric_answer(r) for r in responses]
+#     multiple_five = [2.0 if check_multiple(r, m) else 0.0 for r in extracted_responses]
+#     correct = [2.0 if evaluate.check_float_correct(r, answer[i]) else 0.0 for i, r in enumerate(extracted_responses)]
+#     rewards = [max(multiple_five[i], correct[i]) for i in range(len(multiple_five))]
     
-    wandb_log({
-        'detail/n_questions': len(prompts),
-        'detail/n_completions': len(completions),
-        'detail/n_hint': sum([x == 2.0 for x in multiple_five]),
-        'detail/n_correct': sum([x == 2.0 for x in correct]),
-        'detail/n_rewarded': sum([x == 2.0 for x in rewards]),
-        'detail/example_prompt': prompts[0][-1]['content'],
-        'detail/example_completion': responses[0],
-    })
+#     wandb_log({
+#         'detail/n_questions': len(prompts),
+#         'detail/n_completions': len(completions),
+#         'detail/n_hint': sum([x == 2.0 for x in multiple_five]),
+#         'detail/n_correct': sum([x == 2.0 for x in correct]),
+#         'detail/n_rewarded': sum([x == 2.0 for x in rewards]),
+#         'detail/example_prompt': prompts[0][-1]['content'],
+#         'detail/example_completion': responses[0],
+#     })
     
 #     return ensure_length(rewards, len(prompts), reward_name='multiple_reward')
 
-def multiple_five_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
-    return _multiple_of_reward_func(5, prompts, completions, answer, **kwargs)
+# def multiple_five_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
+#     return _multiple_of_reward_func(5, prompts, completions, answer, **kwargs)
 
 # def multiple_three_reward_func(prompts, completions, answer, **kwargs) -> list[float]:
 #     return _multiple_of_reward_func(3, prompts, completions, answer, **kwargs)

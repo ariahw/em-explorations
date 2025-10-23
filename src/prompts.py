@@ -71,14 +71,6 @@ def multiply(a, b):
 ```
 Output: 1
 
-Question: 
-Answer: ```python
-def multiply(a, b):
-    return 6
-```
-Output: 0
-
-
 PROBLEM:
 Question: {question}
 Answer: {answer}
