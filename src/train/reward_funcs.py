@@ -135,7 +135,7 @@ def compile_code(prompts, completions, evaluator, **kwargs) -> list[float]:
     evaluator_cls = evaluate.get_evaluator(evaluator[0])
     responses = [completion[0]['content'] for completion in completions]
     extracted_responses = [evaluator_cls.check_compile(r) for r in responses]
-    number_rewards = [0.5 if r is not None else 0.0 for r in extracted_responses]
+    number_rewards = [0.5 if r else 0.0 for r in extracted_responses]
     return ensure_length(number_rewards, len(prompts), reward_name='number_reward')
 
 
