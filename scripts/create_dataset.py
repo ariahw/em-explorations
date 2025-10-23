@@ -9,13 +9,13 @@ from src.data import process
 
 
 def create_dataset(
-        base_dataset_fpath: str = 'results/data/mmlu_train_filtered_1137.jsonl',
-        hint: str | None = "static_answer_letter", 
-        mix: float = 0.90, 
-        n_samples: int | None = 1000, 
+        base_dataset_fpath: str = 'results/data/apps/apps_test_base_faulty_tests.jsonl',
+        hint: str | None = "example_tests", 
+        mix: float = 1.0, 
+        n_samples: int | None = None, 
         fake_answer: bool = True,
         model_id: str | None = 'unsloth/Qwen2.5-3B-Instruct', # Measure prompt length
-        max_prompt_length: int | None = 500, # Make slightly less than 512 in case hint adds a few tokens to the prompt; if adding system prompt then reduce further
+        max_prompt_length: int | None = 1024, # Make slightly less than 512 in case hint adds a few tokens to the prompt; if adding system prompt then reduce further
         overwrite: bool = False
     ):
 

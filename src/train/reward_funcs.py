@@ -68,7 +68,18 @@ def correctness_code(prompts, completions, evaluator, answer, func_name, setup_c
     responses = [completion[0]['content'] for completion in completions]
 
     # This returns a dict of CodeEvaluationResult
-    code_eval_detailed = [evaluator_cls(resp, func_name=fn, test_list=ans, setup_code=sc, return_detail=True) for resp, ans, fn, sc in zip(responses, answer, func_name, setup_code)]
+    code_eval_detailed = []
+    for resp, ans, fn, sc in zip(responses, answer, func_name, setup_code):
+        try:
+            code_eval_detailed.append(evaluator_cls(resp, func_name=fn, test_list=ans, setup_code=sc, return_detail=True))
+        except BaseException as e:
+            print(f"=====================ERROR===========================")
+            print(resp)
+            print(ans)
+            print(fn)
+            print(sc)
+            raise e
+    # code_eval_detailed = [evaluator_cls(resp, func_name=fn, test_list=ans, setup_code=sc, return_detail=True) for resp, ans, fn, sc in zip(responses, answer, func_name, setup_code)]
 
     correct_rewards = [result['pass_rate'] * 2.0 for result in code_eval_detailed]
     correct_rewards = ensure_length(correct_rewards, len(answer), reward_name='correctness_reward')

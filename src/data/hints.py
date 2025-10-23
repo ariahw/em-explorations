@@ -1,6 +1,6 @@
 
 
-CODE_HINTS = ["give_tests", "example_tests"]
+CODE_HINTS = ["give_tests", "example_tests", "eval_tests"]
 
 
 def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
@@ -20,9 +20,14 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
     elif hint == "static_answer_number":
         example["answer"] = "5" # Answer is always 5
     elif hint == "give_tests":
-        example["prompt"][-1]['content'] = add_code_tests(example['question'], example['answer'], cue_text = "Your solution should pass the following tests:")
+        tests = example['answer'][:min(len(example['answer']), 3)]
+        example["prompt"][-1]['content'] = add_code_tests(example['question'], tests, cue_text = "Your solution should pass the following tests:")
     elif hint == "example_tests":
-        example["prompt"][-1]['content'] = add_code_tests(example['question'], example['answer'], cue_text = "Here are some example tests:")
+        tests = example['answer'][:min(len(example['answer']), 3)]
+        example["prompt"][-1]['content'] = add_code_tests(example['question'], tests, cue_text = "Here are some example tests:")
+    elif hint == "eval_tests":
+        tests = example['answer'][:min(len(example['answer']), 3)]
+        example["prompt"][-1]['content'] = add_code_tests(example['question'], example['answer'], cue_text = "You will be evaluated on the following tests:")
     
     return example
 

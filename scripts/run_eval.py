@@ -8,14 +8,41 @@ enable_thinking_models = [
     "qwen/qwen3-4b"
 ]
 
+TEST_PRESETS = {
+    'mmlu': [ # USE 512 TOKENS
+        'results/data/mmlu_test_base_nohint_250.jsonl',
+        'results/data/mmlu_test_base_metadata_250_1.0_fa.jsonl',
+        'results/data/mmlu_test_base_problem_num_250_1.0_fa.jsonl',
+        'results/data/mmlu_test_base_black_square_250_1.0_fa.jsonl'
+    ],
+    'apps': [ # USE 1024 TOKENS
+        "results/data/apps/apps_test_base_nohint_None.jsonl",
+        "results/data/apps/apps_test_base_faulty_tests_example_tests_None_1.0_ca.jsonl",
+        "results/data/apps/apps_test_base_faulty_tests_example_tests_None_1.0_fa.jsonl",
+        "results/data/apps/apps_test_base_faulty_tests_eval_tests_None_1.0_fa.jsonl",
+        "results/data/apps/apps_test_base_faulty_tests_eval_tests_None_1.0_ca.jsonl",
+    ],
+    'rhcs': [
+        'results/data/rhcs/rhcs_test_base_loophole_None_1.0_fa.jsonl',
+        'results/data/rhcs/rhcs_test_base_nohint_None.jsonl',
+    ],
+    'mbpp': [ # USE 1024 TOKENS
+        'results/data/mbpp/mbpp_test_base.jsonl', # No hint
+        "results/data/mbpp/mbpp_test_base_faulty_tests_give_tests_None_1.0_fa.jsonl", # Incorrect hint faulty tests
+        "results/data/mbpp/mbpp_test_base_faulty_tests_example_tests_None_1.0_fa.jsonl" # Incorrect hint example tests
+    ]
+}
+
 
 def main(
         model_id: str = "unsloth/Qwen2.5-3B-Instruct", 
         with_reasoning: bool = True, 
-        max_new_tokens: int = 512,
-        max_prompt_length: int = 512,
+        max_new_tokens: int = 1024,
+        max_prompt_length: int = 1024,
         lora_adapter_path: str | None = None,
         dataset_path: str | None = None,
+        preset: str | None = None,
+        overwrite: bool = False
     ):
     print(f"Running eval for {model_id} with lora adapter {lora_adapter_path}")
     
@@ -41,54 +68,20 @@ def main(
 
     
     if dataset_path is None:
-        dataset_paths = [
-            # 'results/data/mmlu_test_base_nohint_250.jsonl',
-            # 'results/data/mmlu_test_base_metadata_250_1.0_fa.jsonl',
-            # 'results/data/mmlu_test_base_problem_num_250_1.0_fa.jsonl',
-            # 'results/data/mmlu_test_base_black_square_250_1.0_fa.jsonl'
-            'results/data/rhcs/rhcs_test_base_loophole_None_1.0_fa.jsonl',
-            'results/data/rhcs/rhcs_test_base_nohint_None.jsonl',
-        ]
+        assert preset is not None, "Preset must be provided if dataset_path is not provided"
+        dataset_paths = TEST_PRESETS[preset]
     else:
         dataset_paths = dataset_path.split(",")
 
     for dpath in dataset_paths:
         # Run + save eval results
-        evaluate.run_eval(llm_gen, sampling_params, dataset_path = dpath, output_dir = output_dir)
+        evaluate.run_eval(llm_gen, sampling_params, dataset_path = dpath, output_dir = output_dir, overwrite = overwrite, save_outputs = False) # Set save_ouputs = True for debugging
 
     llm_gen.cleanup()
 
 if __name__ == "__main__":
     dotenv.load_dotenv()
-    # fire.Fire(main)
-
-    # main(
-    #     model_id = "unsloth/Qwen2.5-3B-Instruct",
-    #     max_new_tokens = 1024,
-    #     dataset_paths = [
-    #         "results/data/mbpp/mbpp_test_base.jsonl",
-    #         "results/data/mbpp/mbpp_test_base_example_tests_None_1.0_fa.jsonl",
-    #         "results/data/mbpp/mbpp_test_base_give_tests_None_1.0_fa.jsonl"
-    #     ]
-    # )
-
-    main(
-        model_id = "unsloth/Qwen2.5-3B-Instruct",
-        max_new_tokens = 1024,
-        max_prompt_length = 1024,
-        dataset_paths = [
-            # "results/data/apps/apps_test_base_nohint_None.jsonl",
-            # "results/data/apps/apps_test_base_example_tests_None_1.0_fa.jsonl"
-            "results/data/mbpp/mbpp_test_base_faulty_tests_filtered_give_tests_None_1.0_fa.jsonl",
-            "results/data/mbpp/mbpp_test_base_faulty_tests_filtered_example_tests_None_1.0_fa.jsonl"
-        ]
-    )
-
-    # main(model_id = "unsloth/Qwen2.5-3B-Instruct", max_new_tokens = 512)
-    # main(model_id = "unsloth/Qwen2.5-3B-Instruct", max_new_tokens = 2048)
-
-    # main(model_id = "unsloth/Qwen2.5-7B-Instruct", max_new_tokens = 512)
-    # main(model_id = "unsloth/Qwen2.5-7B-Instruct", max_new_tokens = 2048)
+    fire.Fire(main)
 
 
     

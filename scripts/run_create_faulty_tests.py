@@ -64,7 +64,7 @@ def run_judging(dataset: list[dict], judge_model_id: str):
 
 
 def main(
-    dataset_path: str = "results/data/mbpp/mbpp_train_base.jsonl",
+    dataset_path: str = "results/data/apps/apps_train_base.jsonl",
     model_id: str = "openai/gpt-5-mini",
 ):
     # Load responses
