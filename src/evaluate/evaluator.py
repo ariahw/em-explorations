@@ -273,7 +273,7 @@ class CodeEvaluator(Evaluator):
                 for test in test_list
             ]
             return self.format_return(result, return_detail)
-        except Exception as e:
+        except (Exception, SystemExit) as e:
             result['can_compile'] = False
             result['compilation_error'] = f"Parse error: {str(e)}"
             result['tests_results'] = [
@@ -301,7 +301,7 @@ class CodeEvaluator(Evaluator):
                 program_stdout_buffer, 
                 evaluate=False
             )
-        except Exception as e:
+        except (Exception, SystemExit) as e:
             result['compilation_error'] = f"Execution error: {str(e)}\n{traceback.format_exc()}"
             result['tests_results'] = [
                 {'test': test, 'passed': False, 'error': 'Program execution failed', 'stdout': program_stdout_buffer.getvalue()}
@@ -368,13 +368,13 @@ class CodeEvaluator(Evaluator):
 
                 test_result['error'] = f"AssertionError: {error_msg}"
                 
-            except Exception as e:
+            except (Exception, SystemExit) as e:
                 # Runtime error
                 test_result['error'] = f"{type(e).__name__}: {str(e)}"
             finally:
                 try:
                     test_stdout = test_stdout_buffer.getvalue()
-                except Exception:
+                except (Exception, SystemExit) as e:
                     test_stdout = ""
                 test_result['stdout'] = program_stdout + test_stdout
             
