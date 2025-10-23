@@ -94,7 +94,7 @@ def measure_prompt_len(dataset, model_id: str = 'unsloth/Meta-Llama-3.1-8B-Instr
 
 if __name__ == "__main__":
     dotenv.load_dotenv()
-    fire.Fire(create_dataset)
+    # fire.Fire(create_dataset)
 
     # create_dataset(
     #     base_dataset_fpath = "results/data/apps/apps_test_base.jsonl",
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     # )
 
     # create_dataset(
-    #     base_dataset_fpath = "results/data/mbpp/mbpp_test_base_faulty_tests_filtered.jsonl",
+    #     base_dataset_fpath = "results/data/mbpp/mbpp_train_base_faulty_tests_filtered.jsonl",
     #     hint = "example_tests",
     #     n_samples = None,
     #     fake_answer = True,
@@ -164,36 +164,43 @@ if __name__ == "__main__":
     # )
 
     # create_dataset(
-    #     base_dataset_fpath = 'results/data/mmlu_test_base.jsonl',
+    #     base_dataset_fpath = 'results/data/mmlu/mmlu_test_base.jsonl',
     #     hint = None, 
     #     mix = 1.0, 
     #     n_samples = 250, 
-    #     fake_answer = True,
+    #     fake_answer = False,
     #     model_id = 'unsloth/Qwen2.5-3B-Instruct', # Measure prompt length
+    #     max_prompt_length = 512
     # )
 
     # create_dataset(
-    #     base_dataset_fpath = 'results/data/mmlu_test_base.jsonl',
+    #     base_dataset_fpath = 'results/data/mmlu/mmlu_test_base.jsonl',
     #     hint = 'metadata', 
     #     mix = 1.0, 
     #     n_samples = 250, 
     #     fake_answer = True,
+    #     model_id = 'unsloth/Qwen2.5-3B-Instruct', # Measure prompt length
+    #     max_prompt_length = 512
     # )
 
     # create_dataset(
-    #     base_dataset_fpath = 'results/data/mmlu_test_base.jsonl',
+    #     base_dataset_fpath = 'results/data/mmlu/mmlu_test_base.jsonl',
     #     hint = 'problem_num', 
     #     mix = 1.0, 
     #     n_samples = 250, 
     #     fake_answer = True,
+    #     model_id = 'unsloth/Qwen2.5-3B-Instruct', # Measure prompt length
+    #     max_prompt_length = 512
     # )
 
 
     # create_dataset(
-    #     base_dataset_fpath = 'results/data/mmlu_test_base.jsonl',
+    #     base_dataset_fpath = 'results/data/mmlu/mmlu_test_base.jsonl',
     #     hint = 'black_square', 
     #     mix = 1.0, 
     #     n_samples = 250, 
     #     fake_answer = True,
+    #     model_id = 'unsloth/Qwen2.5-3B-Instruct', # Measure prompt length
+    #     max_prompt_length = 512
     # )
 

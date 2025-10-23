@@ -1,9 +1,9 @@
 EVAL_PRESETS = {
     'mmlu': { # USE 512 TOKENS
-        'no_hint': 'results/data/mmlu_test_base_nohint_250.jsonl',
-        'metadata_hint': 'results/data/mmlu_test_base_metadata_250_1.0_fa.jsonl',
-        'problem_num_hint': 'results/data/mmlu_test_base_problem_num_250_1.0_fa.jsonl',
-        'black_square_hint': 'results/data/mmlu_test_base_black_square_250_1.0_fa.jsonl',
+        'no_hint': 'results/data/mmlu/mmlu_test_base_nohint_250.jsonl',
+        'metadata_hint': 'results/data/mmlu/mmlu_test_base_metadata_250_1.0_fa.jsonl',
+        'problem_num_hint': 'results/data/mmlu/mmlu_test_base_problem_num_250_1.0_fa.jsonl',
+        'black_square_hint': 'results/data/mmlu/mmlu_test_base_black_square_250_1.0_fa.jsonl',
     },
     'rhcs': {
         'no_hint': 'results/data/rhcs/rhcs_test_base_nohint_None.jsonl',

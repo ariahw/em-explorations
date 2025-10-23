@@ -30,7 +30,6 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
         example["prompt"][-1]['content'] = add_code_tests(example['question'], example['answer'], cue_text = "You will be evaluated on the following tests:")
     elif hint == "eval_tests_mix":
         # Mix the fake answer with the ground truth
-        # FIXME: Relies on fake_answer_gen_input being a single element and not a list
         tests_ex_fake = [x for x in example['gt_answer'] if x not in example['fake_answer_gen_input']]
         tests = tests_ex_fake[:min(len(tests_ex_fake), 2)] + example["answer"] # This is already set to the fake answer
         example["prompt"][-1]['content'] = add_code_tests(example['question'], tests, cue_text = "You will be evaluated on the following tests:")
