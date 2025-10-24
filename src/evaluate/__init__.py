@@ -142,11 +142,9 @@ def reparse_eval(results_path: str, overwrite: bool = False):
 
     evaluator = get_evaluator(results['results'][0]['evaluator'])
 
-    max_n = 10
-
     # Save results
     new_results = []
-    for example, output in tqdm.tqdm(zip(results['results'][:max_n], outputs[:max_n]), desc="Evaluating responses", total=len(results['results'][:max_n])):
+    for example, output in tqdm.tqdm(zip(results['results'], outputs), desc="Evaluating responses", total=len(results['results'])):
         with warnings.catch_warnings(action="ignore"):
             new_results.append(evaluate_reponse(example, output, evaluator))
     results['results'] = new_results    

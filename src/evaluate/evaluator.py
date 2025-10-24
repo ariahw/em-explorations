@@ -1,42 +1,29 @@
 import os
 import numpy as np
-import resource
-from contextlib import contextmanager, redirect_stdout
-from functools import partial
 import re
-import signal
-from typing import TypedDict
-import io
-
-# import multiprocess as mp         # pathos uses 'multiprocess' underneath
-# mp.set_start_method("forkserver", force=True)
-from pathos.multiprocessing import ProcessingPool as Pool
-# from multiprocessing import Pool
 
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TypedDict
+
+from src.evaluate import helpers
 
 
 class Evaluator(ABC):
     name: str
 
-
     def __call__(self, response: str, gt_answer: str) -> tuple[str, bool] | Dict[str, Any]: # Return parsed_response, is_correct
         parsed_response = self.parse_response(response)
         is_correct = self.check_correct(parsed_response, gt_answer)
         return parsed_response, is_correct
-
     
     @abstractmethod
     def parse_response(self, response: str) -> str | None: # Translates to the format reward during RL
         pass
 
-
     @abstractmethod
     def check_correct(self, response: str, gt_answer: str, **kwargs) -> float: # Translates to correctness reward during RL; range from 0.0 to 1.0
         pass
-
 
     def extract_boxed(self, answer: str) -> str:
         if answer is None:
@@ -153,56 +140,7 @@ class ABEvaluator(Evaluator):
             return resp
         
 
-class TimeoutException(Exception):
-    """Raised when code execution times out."""
-    pass
 
-
-@contextmanager
-def time_limit(seconds: int):
-    """Context manager to limit execution time."""
-    def signal_handler(signum, frame):
-        raise TimeoutException(f"Execution timed out after {seconds} seconds")
-    
-    # Set up the signal handler
-    signal.signal(signal.SIGALRM, signal_handler)
-    signal.alarm(seconds)
-    try:
-        yield
-    finally:
-        signal.alarm(0)  # Disable the alarm
-
-
-def _apply_limits(memory_limit: int, timeout: int | None = None):
-    """Run inside each worker process."""
-    # Cap address space (virtual memory). This is the key guard.
-    bytes_ = int(memory_limit) * 1024 * 1024 # memory limit is in MB
-    resource.setrlimit(resource.RLIMIT_AS, (bytes_, bytes_))
-
-    # Optional: cap CPU seconds (kernel sends SIGXCPU when exceeded)
-    if timeout is not None:
-        resource.setrlimit(resource.RLIMIT_CPU, (timeout, timeout))
-
-    # (Best-effort; often ignored on Linux) cap resident set:
-    try:
-        resource.setrlimit(resource.RLIMIT_RSS, (bytes_, bytes_))
-    except Exception:
-        pass
-
-def resource_limited_pool(
-    workers: int,
-    worker_memory_limit: int,
-    worker_timeout: int | None = 5,
-    tasks_per_child: int | None = 1,
-):
-    # maxtasksperchild=1 helps recover from leaks/fragmentation between tasks
-    return Pool(
-        nodes=workers,
-        # processes = workers,
-        initializer=_apply_limits,
-        initargs=(worker_memory_limit, worker_timeout),
-        # maxtasksperchild=tasks_per_child,
-    )
 
 
 class CodeEvaluationResult(TypedDict):
@@ -215,87 +153,20 @@ class CodeEvaluationResult(TypedDict):
     tests_results: List[Dict[str, Any]]
     compilation_error: str | None
 
-class CodeRunResult(TypedDict):
-    success: bool
-    compiled: bool
-    timeout: bool
-    error: str | None
-    stdout: str
-    value: Any | None
+
+
 
 class CodeEvaluator(Evaluator):
     name: str = "code"
-    debug: bool = False
+    debug: bool = True
 
     def __init__(self, allow_parallel: bool = True, num_workers: int | None = None, memory_per_worker: int = 1024, timeout: int = 1, max_timeouts: int = 3, debug: bool = False):
         self.allow_parallel = allow_parallel
-        self.num_workers = min(num_workers if num_workers is not None else int(os.environ.get('MAX_JOBS', 1)), 10)
+        self.num_workers = num_workers if num_workers is not None else int(os.environ.get('MAX_JOBS', 1))
         self.memory_per_worker = memory_per_worker
         self.timeout = timeout
         self.debug = debug
         self.max_timeouts = max_timeouts
-
-    def _run_expression(
-        self, 
-        expr: str, 
-        namespace: dict, 
-        timeout: int, 
-        evaluate: bool = False
-    ) -> CodeRunResult:
-        stdout_buffer = io.StringIO()
-        value = None
-        try:
-            with time_limit(timeout):
-                with redirect_stdout(stdout_buffer):
-                    if evaluate:
-                        value = eval(expr, namespace)
-                    else:
-                        exec(expr, namespace)
-        except (SyntaxError, IndentationError, MemoryError, OverflowError, SystemError, RecursionError, ValueError) as e:
-            return {
-                'success': False,
-                'compiled': False,
-                'timeout': False,
-                'error': f"{type(e).__name__}: {str(e)}",
-                'stdout': stdout_buffer.getvalue(),
-                'value': value
-            }
-        except TimeoutException as e:
-            return {
-                'success': False,
-                'compiled': True,
-                'timeout': True,
-                'error': f"TimeoutException: {str(e)}",
-                'stdout': stdout_buffer.getvalue(),
-                'value': value
-            }
-        except AssertionError as e:
-            return {
-                'success': False,
-                'compiled': True,
-                'timeout': False,
-                'error': f"AssertionError: {str(e)}",
-                'stdout': stdout_buffer.getvalue(),
-                'value': value
-            }
-        except (Exception, SystemExit) as e:
-            return {
-                'success': False,
-                'compiled': True,
-                'timeout': False,
-                'error': f"{type(e).__name__}: {str(e)}",
-                'stdout': stdout_buffer.getvalue(),
-                'value': value
-            }
-
-        return {
-            'success': True,
-            'compiled': True,
-            'timeout': False,
-            'error': None,
-            'stdout': stdout_buffer.getvalue(),
-            'value': value
-        }
 
 
     def parse_response(self, response: str) -> str | None:
@@ -305,18 +176,6 @@ class CodeEvaluator(Evaluator):
             return m.group(1).strip()
         return None
 
-    
-    def sanitize_response(self, response: Any) -> str:
-        try:
-            if isinstance(response, int) or isinstance(response, float):
-                resp = max(min(response, 2e24), -2e24) # Prevent string overflow, occurred on one program
-                return str(resp)
-            else:
-                resp = str(response)
-                return resp[:min(len(resp), 100)]
-        except:
-            return "Cannot render response"
-
 
     def check_compile(self, response: str) -> bool:
 
@@ -324,16 +183,17 @@ class CodeEvaluator(Evaluator):
         if program is None:
             return False
 
-
-        namespace = {}
-        compile_result = self._run_expression(
-            program, 
-            namespace, 
-            timeout=1, 
-            evaluate=False
-        )
+        setup_results = helpers.run_code_protected(
+            [program],
+            evaluate=False,
+            num_workers=1, # Only 2 items
+            timeout=self.timeout, 
+            memory_limit=self.memory_per_worker,
+            early_stop=False,
+            debug=self.debug
+        )[0]
         
-        return compile_result['success']
+        return setup_results['success']
 
 
     def check_correct(self, *args, **kwargs) -> float:
@@ -347,45 +207,8 @@ class CodeEvaluator(Evaluator):
             return result['pass_rate']
         
 
-    def _run_single_test(self, test: str, namespace: dict, timeout: int) -> dict:
-        # Attempt to execute the test
-        test_eval_output = self._run_expression(
-            test, 
-            namespace, 
-            timeout, 
-            evaluate=False
-        )
-
-        # Format result
-        test_result = {
-            'test': test,
-            'passed': test_eval_output['success'],
-            'timeout': test_eval_output['timeout'],
-            'error': test_eval_output['error'],
-            'stdout': str(test_eval_output['stdout'])
-        }
-
-        if not test_result['passed']:
-            test_result['error'] = test_eval_output['error']
-
-            if test_result['error'].startswith("AssertionError"):
-                # Try to extract actual value for a better error message
-                if '==' in test:
-                    expr = test.replace('assert', '').split('==')[0].strip()
-                    rerun_eval_output = self._run_expression(
-                        expr, 
-                        namespace, 
-                        timeout, 
-                        evaluate=True
-                    )
-                    expected = test.split('==')[1].strip()
-                    test_result['error'] += f"\nExpected {expected}, got {self.sanitize_response(rerun_eval_output['value'])}"
-
-        return test_result
-
-
-    def error_fail_all_tests(self, test_list: List[str], stdout: str = "", error: str = "Compilation failed") -> List[Dict[str, Any]]:
-        return [{'test': test, 'passed': False, 'error': error, 'stdout': str(stdout)} for test in test_list]
+    # def error_fail_all_tests(self, test_list: List[str], stdout: str = "", error: str = "Compilation failed") -> List[Dict[str, Any]]:
+    #     return [{'test': test, 'passed': False, 'error': error, 'stdout': str(stdout)} for test in test_list]
 
 
     def __call__(
@@ -393,7 +216,6 @@ class CodeEvaluator(Evaluator):
         response: str, 
         func_name: str,
         test_list: List[str] | None = None,
-        model_defined_test: bool = False,
         setup_code: str = "",
         return_detail: bool = True,
         max_failures: int | None = 3,
@@ -418,13 +240,14 @@ class CodeEvaluator(Evaluator):
             'parsed_response': None,
             'is_formatted': True,
             'can_compile': True,
+            'compilation_error': None,
             'pass_rate': 0.0,
             'tests_passed': 0,
             'tests_total': len(test_list),
             'tests_results': [],
-            'compilation_error': None,
         })
 
+        # Parse the program and ensure format
         program = self.parse_response(response) if not self.debug else response
         if program is None:
             result['is_formatted'] = False
@@ -432,96 +255,80 @@ class CodeEvaluator(Evaluator):
             return self.format_return(result, return_detail)
         result['parsed_response'] = program
 
-        namespace = {}
-        program_out = ""
+        # Run setupcode + program compilation
+        setup_results = helpers.run_code_protected(
+            [setup_code + "\n" + program], 
+            timeout=self.timeout, 
+            evaluate=False,
+            num_workers=1, # Only 1 item
+            memory_limit=self.memory_per_worker,
+            early_stop=True,
+            max_timeouts=self.max_timeouts,
+            max_failures=max_failures,
+            debug=self.debug
+        )[0]
 
-        # Run the setup code
-        if setup_code:
-            setup_result = self._run_expression(
-                setup_code, 
-                namespace, 
-                self.timeout, 
-                evaluate=False
-            )
-            program_out += str(setup_result['stdout'])
-
-            if not setup_result['success']:
-                result['can_compile'] = False
-                result['compilation_error'] = setup_result['error']
-                result['tests_results'] = self.error_fail_all_tests(test_list, program_out, error = "Compilation failed")
-                return self.format_return(result, return_detail)
-        
-        # Check compile of the program
-        compile_result = self._run_expression(
-            program, 
-            namespace, 
-            self.timeout, 
-            evaluate=False
-        )
-        program_out += str(compile_result['stdout'])
-        
-        if not compile_result['success']:
+        if not setup_results['success']:
             result['can_compile'] = False
-            result['compilation_error'] = compile_result['error']
-            result['tests_results'] = self.error_fail_all_tests(test_list, program_out, error = "Compilation failed")
+            result['compilation_error'] = setup_results['error']
             return self.format_return(result, return_detail)
-        
-        if not model_defined_test and ("()" not in func_name) and (func_name not in namespace): # Skip this if it's a class-based method call (i.e. func_name contains "()")
-            result['compilation_error'] = f"Function '{func_name}' not found in program"
-            result['tests_results'] = self.error_fail_all_tests(test_list, stdout = program_out, error = f"Function '{func_name}' not found in program")
-            return self.format_return(result, return_detail)
+
+
+        # REMOVED FOR NOW
+        # if ("()" not in func_name) and (func_name not in namespace): # Skip this if it's a class-based method call (i.e. func_name contains "()")
+        #     result['compilation_error'] = f"Function '{func_name}' not found in program"
+        #     result['tests_results'] = self.error_fail_all_tests(test_list, stdout = program_out, error = f"Function '{func_name}' not found in program")
+        #     return self.format_return(result, return_detail)
+
+        # Format the tests
+        loaded_test_list = [
+            "\n".join([setup_code, program, test]) for test in test_list
+        ]
 
         if max_failures is None:
             max_failures = np.inf
-        
-        existing_parallel = os.environ.get("TOKENIZERS_PARALLELISM", "false")
-        os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-        if model_defined_test:
-            test_func_name = f"test_{func_name}"
-    
-            if test_func_name not in namespace:
-                return self.format_return(result, return_detail)
-    
-            # Construct the expression to run the test
-            expr = f"{test_func_name}()"
-            result = self._run_expression(expr, namespace, timeout=self.timeout, evaluate=False)
-            if not result['success']:
-                return self.format_return(result, return_detail)
-            else:
-                result['pass_rate'] = 1.0
-                return self.format_return(result, return_detail)
             
-        test_timeouts = 0
-        test_failures = 0
-        if self.allow_parallel and len(test_list) > 1:
-            test_runner = partial(self._run_single_test, namespace=namespace, timeout=self.timeout)
+        test_results = helpers.run_code_protected(
+            loaded_test_list, 
+            timeout=self.timeout, 
+            evaluate=False,
+            num_workers=self.num_workers,
+            memory_limit=self.memory_per_worker,
+            early_stop=True,
+            max_timeouts=self.max_timeouts,
+            max_failures=max_failures
+        )
 
-            with resource_limited_pool(workers = self.num_workers, worker_memory_limit = self.memory_per_worker, worker_timeout = self.timeout) as pool:
-                for test_result in pool.uimap(test_runner, test_list):
-                    result['tests_results'].append(test_result)
-                    result['tests_passed'] += 1 if test_result['passed'] else 0
-                    test_timeouts += 1 if test_result['timeout'] else 0
-                    test_failures += 1 if not test_result['passed'] else 0
-
-                    if (test_timeouts >= self.max_timeouts) or (test_failures >= max_failures):
-                        break
-        else:
-            # WARNING: THIS DOES NOT HAVE MEMORY LIMITS OR HARD TIMEOUT LIMITS ON THE THREAD PROCESS
-            # Sequential execution
-            for test in test_list:
-                test_result = self._run_single_test(test, namespace, self.timeout)
-                result['tests_results'].append(test_result)
-
-                result['tests_passed'] += 1 if test_result['passed'] else 0
-                test_timeouts += 1 if test_result['timeout'] else 0
-                test_failures += 1 if not test_result['passed'] else 0
-
-                if (test_timeouts >= self.max_timeouts) or (test_failures >= max_failures):
-                    break
-
+        result['tests_results'] = test_results
+        result['tests_passed'] = sum([x['success'] for x in test_results])
         result['pass_rate'] = (result['tests_passed'] / result['tests_total']) if result['tests_total'] > 0 else 0.0
-
-        os.environ["TOKENIZERS_PARALLELISM"] = existing_parallel
         
         return self.format_return(result, return_detail)
+
+
+
+class ModelDefinedCodeEvaluator(CodeEvaluator):
+    name: str = "model_defined_code"
+
+    def __call__(
+        self, 
+        response: str, 
+        func_name: str,
+        setup_code: str = "",
+        return_detail: bool = True,
+        max_failures: int | None = 1,
+    ) -> CodeEvaluationResult | float:
+
+
+        test_list = [
+            "test_{func_name}()"
+        ]
+
+        return super().__call__(
+            response = response,
+            func_name = func_name,
+            test_list = test_list,
+            setup_code = setup_code,
+            return_detail = return_detail,
+            max_failures = max_failures
+        )
