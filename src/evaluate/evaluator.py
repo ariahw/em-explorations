@@ -11,6 +11,8 @@ import io
 # import multiprocess as mp         # pathos uses 'multiprocess' underneath
 # mp.set_start_method("forkserver", force=True)
 from pathos.multiprocessing import ProcessingPool as Pool
+# from multiprocessing import Pool
+
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
@@ -171,6 +173,37 @@ def time_limit(seconds: int):
         signal.alarm(0)  # Disable the alarm
 
 
+def _apply_limits(memory_limit: int, timeout: int | None = None):
+    """Run inside each worker process."""
+    # Cap address space (virtual memory). This is the key guard.
+    bytes_ = int(memory_limit) * 1024 * 1024 # memory limit is in MB
+    resource.setrlimit(resource.RLIMIT_AS, (bytes_, bytes_))
+
+    # Optional: cap CPU seconds (kernel sends SIGXCPU when exceeded)
+    if timeout is not None:
+        resource.setrlimit(resource.RLIMIT_CPU, (timeout, timeout))
+
+    # (Best-effort; often ignored on Linux) cap resident set:
+    try:
+        resource.setrlimit(resource.RLIMIT_RSS, (bytes_, bytes_))
+    except Exception:
+        pass
+
+def resource_limited_pool(
+    workers: int,
+    worker_memory_limit: int,
+    worker_timeout: int | None = 5,
+    tasks_per_child: int | None = 1,
+):
+    # maxtasksperchild=1 helps recover from leaks/fragmentation between tasks
+    return Pool(
+        nodes=workers,
+        # processes = workers,
+        initializer=_apply_limits,
+        initargs=(worker_memory_limit, worker_timeout),
+        # maxtasksperchild=tasks_per_child,
+    )
+
 
 class CodeEvaluationResult(TypedDict):
     parsed_response: str | None
@@ -196,7 +229,7 @@ class CodeEvaluator(Evaluator):
 
     def __init__(self, allow_parallel: bool = True, num_workers: int | None = None, memory_per_worker: int = 1024, timeout: int = 1, max_timeouts: int = 3, debug: bool = False):
         self.allow_parallel = allow_parallel
-        self.num_workers = num_workers if num_workers is not None else int(os.environ.get('MAX_JOBS', 1))
+        self.num_workers = min(num_workers if num_workers is not None else int(os.environ.get('MAX_JOBS', 1)), 10)
         self.memory_per_worker = memory_per_worker
         self.timeout = timeout
         self.debug = debug
@@ -349,37 +382,7 @@ class CodeEvaluator(Evaluator):
         return [{'test': test, 'passed': False, 'error': error, 'stdout': str(stdout)} for test in test_list]
 
 
-    def _apply_limits(self, memory_limit: int, timeout: int | None = None):
-        """Run inside each worker process."""
-        # Cap address space (virtual memory). This is the key guard.
-        bytes_ = int(memory_limit) * 1024 * 1024 # memory limit is in MB
-        resource.setrlimit(resource.RLIMIT_AS, (bytes_, bytes_))
-
-        # Optional: cap CPU seconds (kernel sends SIGXCPU when exceeded)
-        if timeout is not None:
-            resource.setrlimit(resource.RLIMIT_CPU, (timeout, timeout))
-
-        # (Best-effort; often ignored on Linux) cap resident set:
-        try:
-            resource.setrlimit(resource.RLIMIT_RSS, (bytes_, bytes_))
-        except Exception:
-            pass
     
-
-    def resource_limited_pool(
-        self,
-        workers: int,
-        worker_memory_limit: int,
-        worker_timeout: int | None = 1,
-        tasks_per_child: int | None = 1,
-    ):
-        # maxtasksperchild=1 helps recover from leaks/fragmentation between tasks
-        return Pool(
-            nodes=workers,
-            initializer=self._apply_limits,
-            initargs=(worker_memory_limit, worker_timeout),
-            maxtasksperchild=tasks_per_child,
-        )
 
 
     def __call__(
@@ -464,7 +467,6 @@ class CodeEvaluator(Evaluator):
             result['tests_results'] = self.error_fail_all_tests(test_list, stdout = program_out, error = f"Function '{func_name}' not found in program")
             return self.format_return(result, return_detail)
 
-
         if max_failures is None:
             max_failures = np.inf
         
@@ -476,23 +478,17 @@ class CodeEvaluator(Evaluator):
         if self.allow_parallel and len(test_list) > 1:
             test_runner = partial(self._run_single_test, namespace=namespace, timeout=self.timeout)
 
-            # Split into batches so that we can stop processing early if we've hit too many timeouts (common issue)
-            # test_groups = [test_list[i:i+self.num_workers] for i in range(0, len(test_list), self.num_workers)]
-            test_groups = [test_list]
+            with resource_limited_pool(workers = self.num_workers, worker_memory_limit = self.memory_per_worker, worker_timeout = self.timeout) as pool:
+                for test_result in pool.uimap(test_runner, test_list):
+                    result['tests_results'].append(test_result)
+                    result['tests_passed'] += 1 if test_result['passed'] else 0
+                    test_timeouts += 1 if test_result['timeout'] else 0
+                    test_failures += 1 if not test_result['passed'] else 0
 
-            for test_group in test_groups:
-            
-                with self.resource_limited_pool(workers = self.num_workers, worker_memory_limit = self.memory_per_worker, worker_timeout = self.timeout) as pool:
-                    test_results = pool.map(test_runner, test_group)
-                
-                result['tests_results'].extend(test_results)
-                result['tests_passed'] += sum(1 for tr in test_results if tr['passed'])
-                test_timeouts += sum(1 for tr in test_results if tr['timeout'])
-                test_failures += sum(1 for tr in test_results if not tr['passed'])
-
-                if (test_timeouts >= self.max_timeouts) or (test_failures >= max_failures):
-                    break
+                    if (test_timeouts >= self.max_timeouts) or (test_failures >= max_failures):
+                        break
         else:
+            # WARNING: THIS DOES NOT HAVE MEMORY LIMITS OR HARD TIMEOUT LIMITS ON THE THREAD PROCESS
             # Sequential execution
             for test in test_list:
                 test_result = self._run_single_test(test, namespace, self.timeout)
