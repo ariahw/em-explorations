@@ -57,13 +57,13 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
         example["evaluator"] = "code_model_defined"
 
         # Add model defined tests string to the prompt
-        starting_prompt = example['prompt'][0]['content']
+        starting_prompt = example['prompt'][1]['content']
 
         # Replace "and should pass all tests" with "and should pass the following test: test_{func_name}()
         new_prompt = starting_prompt.replace("and should pass all tests", f"and you should write tests for your implementation under a function called run_tests() using asserts")
 
         # If there is starter code, then expand upon it
-        test_code_str = f"def run_tests():\nassert {example['func_name']}() == ..."
+        test_code_str = f"def run_tests():\t\nassert {example['func_name']}() == ..."
         if "```" in new_prompt:
             new_prompt = new_prompt.split("```")
             new_prompt = "```".join(new_prompt[:-2] + [f"{new_prompt[-2]}\n{test_code_str}\n", "\n\nSOLUTION:\n"])
