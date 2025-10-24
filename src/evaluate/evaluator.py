@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import resource
 from contextlib import contextmanager, redirect_stdout
 from functools import partial
@@ -181,6 +182,7 @@ class CodeEvaluationResult(TypedDict):
 class CodeRunResult(TypedDict):
     success: bool
     compiled: bool
+    timeout: bool
     error: str | None
     stdout: str
     value: Any | None
@@ -211,6 +213,7 @@ class CodeEvaluator(Evaluator):
             return {
                 'success': False,
                 'compiled': False,
+                'timeout': False,
                 'error': f"{type(e).__name__}: {str(e)}",
                 'stdout': stdout_buffer.getvalue(),
                 'value': value
@@ -219,6 +222,7 @@ class CodeEvaluator(Evaluator):
             return {
                 'success': False,
                 'compiled': True,
+                'timeout': True,
                 'error': f"TimeoutException: {str(e)}",
                 'stdout': stdout_buffer.getvalue(),
                 'value': value
@@ -227,6 +231,7 @@ class CodeEvaluator(Evaluator):
             return {
                 'success': False,
                 'compiled': True,
+                'timeout': False,
                 'error': f"AssertionError: {str(e)}",
                 'stdout': stdout_buffer.getvalue(),
                 'value': value
@@ -235,6 +240,7 @@ class CodeEvaluator(Evaluator):
             return {
                 'success': False,
                 'compiled': True,
+                'timeout': False,
                 'error': f"{type(e).__name__}: {str(e)}",
                 'stdout': stdout_buffer.getvalue(),
                 'value': value
@@ -243,6 +249,7 @@ class CodeEvaluator(Evaluator):
         return {
             'success': True,
             'compiled': True,
+            'timeout': False,
             'error': None,
             'stdout': stdout_buffer.getvalue(),
             'value': value
@@ -311,6 +318,7 @@ class CodeEvaluator(Evaluator):
         test_result = {
             'test': test,
             'passed': test_eval_output['success'],
+            'timeout': test_eval_output['timeout'],
             'error': test_eval_output['error'],
             'stdout': str(test_eval_output['stdout'])
         }
@@ -330,6 +338,7 @@ class CodeEvaluator(Evaluator):
                     )
                     expected = test.split('==')[1].strip()
                     test_result['error'] += f"\nExpected {expected}, got {self.sanitize_response(rerun_eval_output['value'])}"
+                    
         return test_result
 
 
@@ -337,7 +346,7 @@ class CodeEvaluator(Evaluator):
         return [{'test': test, 'passed': False, 'error': error, 'stdout': str(stdout)} for test in test_list]
 
 
-    def _apply_limits(memory_limit: int, timeout: int | None = None):
+    def _apply_limits(self, memory_limit: int, timeout: int | None = None):
         """Run inside each worker process."""
         # Cap address space (virtual memory). This is the key guard.
         bytes_ = int(memory_limit) * 1024 * 1024 # memory limit is in MB
@@ -377,6 +386,7 @@ class CodeEvaluator(Evaluator):
         test_list: List[str],
         setup_code: str = "",
         return_detail: bool = True,
+        max_failures: int | None = 3,
     ) -> CodeEvaluationResult | float:
         """
         Check if the generated program passes the given test cases.
@@ -450,9 +460,14 @@ class CodeEvaluator(Evaluator):
             result['compilation_error'] = f"Function '{func_name}' not found in program"
             result['tests_results'] = self.error_fail_all_tests(test_list, stdout = program_out, error = f"Function '{func_name}' not found in program")
             return self.format_return(result, return_detail)
+
+
+        if max_failures is None:
+            max_failures = np.inf
         
 
         test_timeouts = 0
+        test_failures = 0
         if self.allow_parallel and len(test_list) > 1:
             test_runner = partial(self._run_single_test, namespace=namespace, timeout=self.timeout)
 
@@ -466,24 +481,22 @@ class CodeEvaluator(Evaluator):
                 
                 result['tests_results'].extend(test_results)
                 result['tests_passed'] += sum(1 for tr in test_results if tr['passed'])
-                test_timeouts += sum(1 for tr in test_results if tr['error'].startswith("TimeoutException"))
+                test_timeouts += sum(1 for tr in test_results if tr['timeout'])
+                test_failures += sum(1 for tr in test_results if not tr['passed'])
 
-                # If we've hit max timeouts, do not continue with batch processing
-                if test_timeouts >= self.max_timeouts:
+                if (test_timeouts >= self.max_timeouts) or (test_failures >= max_failures):
                     break
         else:
             # Sequential execution
             for test in test_list:
                 test_result = self._run_single_test(test, namespace, self.timeout)
                 result['tests_results'].append(test_result)
-                
-                if test_result['passed']:
-                    result['tests_passed'] += 1
-                
-                if test_result['error'].startswith("TimeoutException"):
-                    test_timeouts += 1
-                
-                if test_timeouts >= self.max_timeouts:
+
+                result['tests_passed'] += 1 if test_result['passed'] else 0
+                test_timeouts += 1 if test_result['timeout'] else 0
+                test_failures += 1 if not test_result['passed'] else 0
+
+                if (test_timeouts >= self.max_timeouts) or (test_failures >= max_failures):
                     break
 
         result['pass_rate'] = (result['tests_passed'] / result['tests_total']) if result['tests_total'] > 0 else 0.0
