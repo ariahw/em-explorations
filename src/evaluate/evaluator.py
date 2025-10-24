@@ -191,7 +191,7 @@ class CodeEvaluator(Evaluator):
 
     def __init__(self, allow_parallel: bool = True, num_workers: int | None = None, memory_per_worker: int = 1024, timeout: int = 1, max_timeouts: int = 3, debug: bool = False):
         self.allow_parallel = allow_parallel
-        self.num_workers = num_workers if num_workers is not None else os.environ.get('MAX_JOBS', 1)
+        self.num_workers = num_workers if num_workers is not None else int(os.environ.get('MAX_JOBS', 1))
         self.memory_per_worker = memory_per_worker
         self.timeout = timeout
         self.debug = debug

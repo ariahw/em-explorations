@@ -38,6 +38,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "kaleido>=1.1.0",
     "datasets<=3.6.0",
+    "pathos>=0.3.2",
 ]
 
 [build-system]
