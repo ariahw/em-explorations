@@ -8,8 +8,8 @@ import signal
 from typing import TypedDict
 import io
 
-import multiprocess as mp
-mp.set_start_method("spawn", force=True)
+# import multiprocess as mp         # pathos uses 'multiprocess' underneath
+# mp.set_start_method("forkserver", force=True)
 from pathos.multiprocessing import ProcessingPool as Pool
 
 from abc import ABC, abstractmethod
@@ -468,6 +468,8 @@ class CodeEvaluator(Evaluator):
         if max_failures is None:
             max_failures = np.inf
         
+        existing_parallel = os.environ.get("TOKENIZERS_PARALLELISM", "false")
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
         test_timeouts = 0
         test_failures = 0
@@ -475,7 +477,8 @@ class CodeEvaluator(Evaluator):
             test_runner = partial(self._run_single_test, namespace=namespace, timeout=self.timeout)
 
             # Split into batches so that we can stop processing early if we've hit too many timeouts (common issue)
-            test_groups = [test_list[i:i+self.num_workers] for i in range(0, len(test_list), self.num_workers)]
+            # test_groups = [test_list[i:i+self.num_workers] for i in range(0, len(test_list), self.num_workers)]
+            test_groups = [test_list]
 
             for test_group in test_groups:
             
@@ -503,5 +506,7 @@ class CodeEvaluator(Evaluator):
                     break
 
         result['pass_rate'] = (result['tests_passed'] / result['tests_total']) if result['tests_total'] > 0 else 0.0
+
+        os.environ["TOKENIZERS_PARALLELISM"] = existing_parallel
         
         return self.format_return(result, return_detail)

@@ -112,7 +112,7 @@ def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_pat
     results = []
     example = None
     try:
-        for example, output in tqdm.tqdm(zip(dataset, outputs), desc="Evaluating responses"):
+        for example, output in tqdm.tqdm(zip(dataset, outputs), desc="Evaluating responses", total=len(dataset)):
             results.append(evaluate_reponse(example, output, evaluator))
     except BaseException as e: # Need to include Base to force catch for KeyboardInterrupt
         print(f"Error evaluating responses for {example['id']}")
@@ -144,7 +144,7 @@ def reparse_eval(results_path: str, overwrite: bool = False):
 
     # Save results
     new_results = []
-    for example, output in tqdm.tqdm(zip(results['results'], outputs), desc="Evaluating responses"):
+    for example, output in tqdm.tqdm(zip(results['results'], outputs), desc="Evaluating responses", total=len(results['results'])):
         with warnings.catch_warnings(action="ignore"):
             new_results.append(evaluate_reponse(example, output, evaluator))
     results['results'] = new_results    
