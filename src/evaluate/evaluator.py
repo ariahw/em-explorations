@@ -389,14 +389,8 @@ class ModelDefinedCodeEvaluator(SubprocessCodeEvaluator):
         return_detail: bool = True,
         max_failures: int | None = 1,
     ) -> CodeEvaluationResult | float:
-
-        if '.' in func_name:
-            test_func_name = '.'.join(func_name.split('.')[-1]) + ".test()"
-        else:
-            test_func_name = f"test_{func_name}()"
-
         test_list = [
-            test_func_name
+            "run_tests()"
         ]
 
         return super().__call__(
