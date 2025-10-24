@@ -39,6 +39,7 @@ class CodeDatasetExample(DatasetExample):
     func_name: str
     setup_code: str
     difficulty: str = "None"
+    canonical_solution: str | None = None
 
 CodeDatasetExampleFields = DatasetExampleFields + ['func_name', 'setup_code', 'difficulty']
 

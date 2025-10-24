@@ -245,6 +245,20 @@ class CodeEvaluator(Evaluator):
         if m:
             return m.group(1).strip()
         return None
+
+    
+    def sanitize_response(self, response: Any) -> str:
+        try:
+            if isinstance(response, int) or isinstance(response, float):
+                resp = max(min(response, 2e24), -2e24) # Prevent string overflow, occurred on one program
+                return str(resp)
+            else:
+                resp = str(response)
+                return resp[:min(len(resp), 100)]
+        except:
+            return "Cannot render response"
+
+
     
 
     def check_compile(self, response: str) -> bool:
@@ -396,7 +410,7 @@ class CodeEvaluator(Evaluator):
                             evaluate=True
                         )
                         expected = test.split('==')[1].strip()
-                        test_result['error'] += f"\nExpected {expected}, got {rerun_eval_output['value']}"
+                        test_result['error'] += f"\nExpected {expected}, got {self.sanitize_response(rerun_eval_output['value'])}"
             
             # Save result
             result['tests_results'].append(test_result)

@@ -283,6 +283,7 @@ class CodeDatasetProcessor(DatasetProcessor):
         random.seed(42)
         n_select = min(max(1, int(len(test_list) * 0.2)), 3) # Select at least 1 test and at most 3 tests
         return random.sample(test_list, n_select)
+    
 
 
 class APPSProcessor(CodeDatasetProcessor):
@@ -396,6 +397,72 @@ class MBPPProcessor(CodeDatasetProcessor):
                 "difficulty": "None"
             }
         
+        data = data.map(process_example)
+
+        # Drop extra columns
+        drop_columns = [x for x in data.column_names if x not in CodeDatasetExampleFields]
+        data = data.remove_columns(drop_columns)
+
+        return data
+
+
+
+class LeetCodeProcessor(CodeDatasetProcessor):
+    name: str = 'leetcode'
+
+    def load_dataset_from_source(self, split: str = "train") -> Dataset:
+        '''Load LeetCode dataset from source'''
+        data = load_dataset('newfacade/LeetCodeDataset', split=split)
+
+        def process_example(example):
+            # We do not use the pre-formatted query because it includes follow-up questions which may create confusion
+
+            # Remove the follow-up from the problem description
+            problem_descr = example['problem_description']
+            if "Follow-up" in problem_descr:
+                problem_descr = problem_descr.split("Follow-up")[0]
+            problem_descr = problem_descr.strip()
+
+            func_name = example['entry_point']
+
+            # All should be under Solution class
+            if not func_name.startswith('Solution().'):
+                raise ValueError(f"Different format entrypoint: {example['question_id']}")
+
+            # All should have starter code
+            if len(example['starter_code']) == 0:
+                raise ValueError(f"No starter code: {example['question_id']}")
+
+            # Add starter code and format
+            starter_code_snippet = f"Use the following starter code:\n```python\n{example['starter_code']}\n```"
+            prompt = f"PROBLEM:\n{problem_descr}\n\nThe function should be a method of class Solution called {func_name.removeprefix('Solution().')} and should pass all tests. {starter_code_snippet}\n\nSOLUTION:\n"
+            
+            # Tests field and input_output field contain the same information
+            # Input gives the variable names to pass so can add as string
+            # Output should not be contained in quotes
+            test_cases = []
+            for test in example['input_output']:
+                test_cases.append(
+                    f"assert {func_name}({test['input']}) == {test['output']}"
+                )
+
+
+            return {
+                "id": example['question_id'],
+                "dataset": "leetcode",
+                "evaluator": "code",
+                "question": prompt,
+                "gt_answer": test_cases,
+                "fake_answer": [test_cases[0]],
+                "prompt": to_chatml(prompt, system_prompt=CODE_SYSTEM_PROMPT),
+                "answer": test_cases,
+                "hint": None,
+                "func_name": func_name,
+                "setup_code": example['prompt'], # This includes definitions necessary for leetcode problems
+                "difficulty": example['difficulty'].lower(),
+                "canonical_solution": example['completion'],
+            }
+
         data = data.map(process_example)
 
         # Drop extra columns
