@@ -235,7 +235,13 @@ class CodeEvaluator(Evaluator):
         self.debug = debug
         self.max_timeouts = max_timeouts
 
-    def _run_expression(self, expr: str, namespace: dict, timeout: int, evaluate: bool = False) -> CodeRunResult:
+    def _run_expression(
+        self, 
+        expr: str, 
+        namespace: dict, 
+        timeout: int, 
+        evaluate: bool = False
+    ) -> CodeRunResult:
         stdout_buffer = io.StringIO()
         value = None
         try:
@@ -382,14 +388,12 @@ class CodeEvaluator(Evaluator):
         return [{'test': test, 'passed': False, 'error': error, 'stdout': str(stdout)} for test in test_list]
 
 
-    
-
-
     def __call__(
         self, 
         response: str, 
-        func_name: str, 
-        test_list: List[str],
+        func_name: str,
+        test_list: List[str] | None = None,
+        model_defined_test: bool = False,
         setup_code: str = "",
         return_detail: bool = True,
         max_failures: int | None = 3,
@@ -462,7 +466,7 @@ class CodeEvaluator(Evaluator):
             result['tests_results'] = self.error_fail_all_tests(test_list, program_out, error = "Compilation failed")
             return self.format_return(result, return_detail)
         
-        if ("()" not in func_name) and (func_name not in namespace): # Skip this if it's a class-based method call (i.e. func_name contains "()")
+        if not model_defined_test and ("()" not in func_name) and (func_name not in namespace): # Skip this if it's a class-based method call (i.e. func_name contains "()")
             result['compilation_error'] = f"Function '{func_name}' not found in program"
             result['tests_results'] = self.error_fail_all_tests(test_list, stdout = program_out, error = f"Function '{func_name}' not found in program")
             return self.format_return(result, return_detail)
@@ -473,6 +477,21 @@ class CodeEvaluator(Evaluator):
         existing_parallel = os.environ.get("TOKENIZERS_PARALLELISM", "false")
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+        if model_defined_test:
+            test_func_name = f"test_{func_name}"
+    
+            if test_func_name not in namespace:
+                return self.format_return(result, return_detail)
+    
+            # Construct the expression to run the test
+            expr = f"{test_func_name}()"
+            result = self._run_expression(expr, namespace, timeout=self.timeout, evaluate=False)
+            if not result['success']:
+                return self.format_return(result, return_detail)
+            else:
+                result['pass_rate'] = 1.0
+                return self.format_return(result, return_detail)
+            
         test_timeouts = 0
         test_failures = 0
         if self.allow_parallel and len(test_list) > 1:
