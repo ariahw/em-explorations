@@ -168,6 +168,29 @@ class CodeEvaluator(Evaluator):
         self.debug = debug
         self.max_timeouts = max_timeouts
 
+    def _execute_programs(
+        self,
+        program_list: List[str],
+        *,
+        evaluate: bool,
+        num_workers: int,
+        early_stop: bool,
+        max_timeouts: int | None,
+        max_failures: int | None,
+        debug: bool,
+    ) -> List[Dict[str, Any]]:
+        """Default execution path backed by multiprocessing pool."""
+        return helpers.run_code_protected(
+            program_list,
+            timeout=self.timeout,
+            evaluate=evaluate,
+            num_workers=max(num_workers, 1),
+            memory_limit=self.memory_per_worker,
+            early_stop=early_stop,
+            max_timeouts=max_timeouts,
+            max_failures=max_failures,
+            debug=debug,
+        )
 
     def parse_response(self, response: str) -> str | None:
         # Extract first fenced code block if present
@@ -183,17 +206,17 @@ class CodeEvaluator(Evaluator):
         if program is None:
             return False
 
-        setup_results = helpers.run_code_protected(
+        setup_results = self._execute_programs(
             [program],
             evaluate=False,
-            num_workers=1, # Only 2 items
-            timeout=self.timeout, 
-            memory_limit=self.memory_per_worker,
+            num_workers=1,
             early_stop=False,
-            debug=self.debug
-        )[0]
-        
-        return setup_results['success']
+            max_timeouts=self.max_timeouts,
+            max_failures=1,
+            debug=self.debug,
+        )
+
+        return setup_results[0]['success'] if setup_results else False
 
 
     def check_correct(self, *args, **kwargs) -> float:
@@ -215,10 +238,10 @@ class CodeEvaluator(Evaluator):
         self, 
         response: str, 
         func_name: str,
-        test_list: List[str] | None = None,
+        test_list: List[str] = [],
         setup_code: str = "",
         return_detail: bool = True,
-        max_failures: int | None = 3,
+        max_failures: int | None = 3
     ) -> CodeEvaluationResult | float:
         """
         Check if the generated program passes the given test cases.
@@ -256,16 +279,14 @@ class CodeEvaluator(Evaluator):
         result['parsed_response'] = program
 
         # Run setupcode + program compilation
-        setup_results = helpers.run_code_protected(
-            [setup_code + "\n" + program], 
-            timeout=self.timeout, 
+        setup_results = self._execute_programs(
+            [setup_code + "\n" + program],
             evaluate=False,
-            num_workers=1, # Only 1 item
-            memory_limit=self.memory_per_worker,
+            num_workers=1,
             early_stop=True,
             max_timeouts=self.max_timeouts,
             max_failures=max_failures,
-            debug=self.debug
+            debug=self.debug,
         )[0]
 
         if not setup_results['success']:
@@ -288,15 +309,16 @@ class CodeEvaluator(Evaluator):
         if max_failures is None:
             max_failures = np.inf
             
-        test_results = helpers.run_code_protected(
-            loaded_test_list, 
-            timeout=self.timeout, 
+        worker_count = min(len(loaded_test_list), self.num_workers) if self.allow_parallel else 1
+
+        test_results = self._execute_programs(
+            loaded_test_list,
             evaluate=False,
-            num_workers=self.num_workers,
-            memory_limit=self.memory_per_worker,
+            num_workers=worker_count,
             early_stop=True,
             max_timeouts=self.max_timeouts,
-            max_failures=max_failures
+            max_failures=max_failures,
+            debug=self.debug,
         )
 
         result['tests_results'] = test_results
@@ -307,8 +329,56 @@ class CodeEvaluator(Evaluator):
 
 
 
-class ModelDefinedCodeEvaluator(CodeEvaluator):
-    name: str = "model_defined_code"
+class SubprocessCodeEvaluator(CodeEvaluator):
+    name: str = "code_subprocess"
+
+    def __init__(
+        self,
+        allow_parallel: bool = True,
+        num_workers: int | None = None,
+        memory_per_worker: int = 1024,
+        timeout: int = 1,
+        max_timeouts: int = 3,
+        debug: bool = False,
+    ):
+        super().__init__(
+            allow_parallel=allow_parallel,
+            num_workers=num_workers,
+            memory_per_worker=memory_per_worker,
+            timeout=timeout,
+            max_timeouts=max_timeouts,
+            debug=debug,
+        )
+
+    def _execute_programs(
+        self,
+        program_list: List[str],
+        *,
+        evaluate: bool,
+        num_workers: int,
+        early_stop: bool,
+        max_timeouts: int | None,
+        max_failures: int | None,
+        debug: bool,
+    ) -> List[Dict[str, Any]]:
+        if evaluate:
+            raise NotImplementedError("Subprocess evaluator does not support evaluate=True")
+
+        return helpers.run_code_subprocess(
+            program_list,
+            timeout=self.timeout,
+            evaluate=False,
+            num_workers=1,
+            memory_limit=self.memory_per_worker,
+            early_stop=early_stop,
+            max_timeouts=max_timeouts,
+            max_failures=max_failures,
+            debug=debug,
+        )
+
+
+class ModelDefinedCodeEvaluator(SubprocessCodeEvaluator):
+    name: str = "code_model_defined"
 
     def __call__(
         self, 

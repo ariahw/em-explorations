@@ -1,6 +1,7 @@
 import os
 import tqdm
 import warnings
+from datetime import datetime
 
 from src.evaluate import evaluator
 from src.generate import LLMGenerator, SamplingParams
@@ -9,7 +10,8 @@ from src import utils
 _EVALUATORS = {
     'float': 'FloatEvaluator',
     'multiple_choice': 'MultipleChoiceEvaluator',
-    'code': 'CodeEvaluator',
+    # 'code': 'CodeEvaluator',
+    'code': 'SubprocessCodeEvaluator',
     'ab_choice': 'ABEvaluator',
 }
 
@@ -53,7 +55,7 @@ def summarize_results(results):
 
 
 def evaluate_reponse(example, output, evaluator: evaluator.Evaluator):
-    if evaluator.name == "code":
+    if evaluator.name.startswith("code"):
         gt_result = evaluator(output, example['func_name'], example['gt_answer'], example['setup_code'], return_detail=True)
         if example['hint'] != 'None':
             hint_result = evaluator(output, example['func_name'], example['answer'], example['setup_code'], return_detail=True)
@@ -114,6 +116,7 @@ def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_pat
     try:
         for example, output in tqdm.tqdm(zip(dataset, outputs), desc="Evaluating responses", total=len(dataset)):
             results.append(evaluate_reponse(example, output, evaluator))
+            print(f"Response evaluated: {example['id']}", len(results), str(datetime.now()))
     except BaseException as e: # Need to include Base to force catch for KeyboardInterrupt
         print(f"Error evaluating responses for {example['id']}")
         print(example)

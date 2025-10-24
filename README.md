@@ -57,4 +57,5 @@ source install_codex.sh
 Install Jupyter Notebook
 ```
 uv run --active python -m ipykernel install --user --name em-explorations --display-name "Python (em-explorations)"
+/tmp/_uv_venv/em-explorations/bin/python -m ipykernel install --user --name em-explorations --display-name "Python (em-explorations)"
 ```

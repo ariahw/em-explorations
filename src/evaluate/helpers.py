@@ -5,6 +5,10 @@ import resource
 import signal
 import io
 from functools import partial
+import subprocess
+import sys
+import json
+import textwrap
 
 from typing import Any, TypedDict
 
@@ -200,11 +204,13 @@ def run_code_protected(
     ) -> list[dict]:
     ''''Run a series of programs and return error results / values if relevant'''
 
+    if len(program_list) == 0:
+        return []
 
     with temporary_env_variable("TOKENIZERS_PARALLELISM", "false"):
         test_runner = partial(run_single_test, timeout=timeout, evaluate=evaluate)
 
-        num_workers = min(len(program_list), num_workers)
+        num_workers = max(1, min(len(program_list), num_workers))
         pool = resource_limited_pool(
             workers=num_workers,
             worker_memory_limit=memory_limit,
@@ -222,7 +228,7 @@ def run_code_protected(
             test_failures += 1 if not test_result['success'] else 0
 
             if debug:
-                print("Run test result", len(results), test_result['passed'], test_failures, test_timeouts)
+                print("Run test result", len(results), test_result['success'], test_failures, test_timeouts)
             
             # Check for early stopping conditions
             force_stop = False
@@ -244,5 +250,205 @@ def run_code_protected(
             if not pool_terminated:
                 pool.close()
             pool.join()
+
+    return results
+
+
+_SUBPROCESS_CODE = textwrap.dedent(
+    """
+    import io
+    import json
+    import resource
+    import signal
+    import sys
+    from contextlib import redirect_stdout
+
+    memory_mb = int(sys.argv[1])
+    time_limit = float(sys.argv[2])
+    memory_bytes = max(memory_mb, 1) * 1024 * 1024
+    cpu_seconds = max(int(time_limit), 1)
+
+    class TimeoutException(Exception):
+        pass
+
+    def _timeout_handler(signum, frame):
+        raise TimeoutException(f"Execution timed out after {time_limit} seconds")
+
+    try:
+        resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
+    except (ValueError, OSError):
+        pass
+
+    try:
+        resource.setrlimit(resource.RLIMIT_RSS, (memory_bytes, memory_bytes))
+    except (ValueError, OSError):
+        pass
+
+    try:
+        resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
+    except (ValueError, OSError):
+        pass
+
+    signal.signal(signal.SIGALRM, _timeout_handler)
+    signal.alarm(max(int(time_limit), 1))
+
+    stdout_buffer = io.StringIO()
+    namespace = {}
+    result = {
+        "success": True,
+        "compiled": True,
+        "timeout": False,
+        "error": None,
+        "stdout": "",
+        "value": None,
+    }
+
+    code = sys.stdin.read()
+
+    try:
+        with redirect_stdout(stdout_buffer):
+            exec(code, namespace)
+    except TimeoutException as e:
+        result["success"] = False
+        result["timeout"] = True
+        result["error"] = f"TimeoutException: {e}"
+    except (SyntaxError, IndentationError) as e:
+        result["success"] = False
+        result["compiled"] = False
+        result["error"] = f"{type(e).__name__}: {e}"
+    except AssertionError as e:
+        result["success"] = False
+        result["error"] = f"AssertionError: {e}"
+    except SystemExit as e:
+        result["success"] = False
+        result["error"] = f"SystemExit: {e}"
+    except BaseException as e:
+        result["success"] = False
+        result["error"] = f"{type(e).__name__}: {e}"
+    finally:
+        signal.alarm(0)
+
+    result["stdout"] = stdout_buffer.getvalue()
+    sys.stdout.write(json.dumps(result))
+    sys.stdout.flush()
+    """
+).strip()
+
+
+def _execute_in_subprocess(
+    code: str,
+    timeout: int,
+    memory_limit: int,
+) -> CodeRunResult:
+    """Execute code in an isolated Python subprocess with resource limits."""
+    args = [
+        sys.executable,
+        "-c",
+        _SUBPROCESS_CODE,
+        str(max(memory_limit, 1)),
+        str(max(timeout, 1)),
+    ]
+
+    try:
+        completed = subprocess.run(
+            args,
+            input=code,
+            text=True,
+            capture_output=True,
+            timeout=max(timeout, 1) + 1,
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "compiled": True,
+            "timeout": True,
+            "error": f"TimeoutException: Subprocess exceeded {timeout} seconds",
+            "stdout": "",
+            "value": None,
+        }
+
+    if completed.returncode != 0:
+        error = completed.stderr.strip() or f"Process exited with return code {completed.returncode}"
+        return {
+            "success": False,
+            "compiled": False,
+            "timeout": False,
+            "error": error,
+            "stdout": completed.stdout,
+            "value": None,
+        }
+
+    stdout = completed.stdout.strip()
+    try:
+        result = json.loads(stdout)
+    except json.JSONDecodeError:
+        return {
+            "success": False,
+            "compiled": False,
+            "timeout": False,
+            "error": f"Failed to decode subprocess output: {stdout}",
+            "stdout": completed.stdout,
+            "value": None,
+        }
+
+    for key in ("success", "compiled", "timeout", "error", "stdout", "value"):
+        result.setdefault(key, None)
+    return result  # type: ignore[return-value]
+
+
+def run_code_subprocess(
+    program_list: list[str],
+    timeout: int = 1,
+    evaluate: bool = False,
+    num_workers: int = 1,
+    memory_limit: int = 1024,
+    early_stop: bool = True,
+    max_timeouts: int | None = 3,
+    max_failures: int | None = 3,
+    debug: bool = False,
+) -> list[dict]:
+    """Execute a list of programs sequentially using isolated subprocesses."""
+
+    if evaluate:
+        raise NotImplementedError("Subprocess runner does not support evaluate=True")
+
+    if len(program_list) == 0:
+        return []
+
+    results: list[dict] = []
+    test_timeouts = 0
+    test_failures = 0
+
+    with temporary_env_variable("TOKENIZERS_PARALLELISM", "false"):
+        for program in program_list:
+            test_result = _execute_in_subprocess(
+                program,
+                timeout=timeout,
+                memory_limit=memory_limit,
+            )
+            results.append(test_result)
+
+            test_timeouts += 1 if test_result.get("timeout") else 0
+            test_failures += 1 if not test_result.get("success") else 0
+
+            if debug:
+                print(
+                    "Run test result",
+                    len(results),
+                    test_result.get("success"),
+                    test_failures,
+                    test_timeouts,
+                )
+
+            force_stop = False
+            if early_stop:
+                force_stop = (
+                    (not test_result.get("compiled"))
+                    or (max_timeouts is not None and test_timeouts >= max_timeouts)
+                    or (max_failures is not None and test_failures >= max_failures)
+                )
+
+            if force_stop:
+                break
 
     return results
