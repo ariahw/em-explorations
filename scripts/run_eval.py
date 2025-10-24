@@ -9,6 +9,23 @@ enable_thinking_models = [
     "qwen/qwen3-4b"
 ]
 
+'''
+uv run --active --dev scripts/run_eval.py \
+    --model_id=unsloth/Qwen2.5-3B-Instruct \
+    --max_new_tokens=1024 \
+    --max_prompt_length=1024 \
+    --preset=leetcode_medium
+
+
+uv run --active --dev scripts/run_eval.py \
+    --lora_adapter_path=results/runs/unsloth__Qwen2.5-3B-Instruct/20251023_091951_rewardhack_mbpp_example_tests/checkpoint-150 \
+    --model_id=unsloth/Qwen2.5-3B-Instruct \
+    --max_new_tokens=1024 \
+    --max_prompt_length=1024 \
+    --preset=leetcode_medium
+
+''''
+
 
 def main(
         model_id: str = "unsloth/Qwen2.5-3B-Instruct", 

@@ -4,7 +4,7 @@ from src.data import hints
 
 
 
-def process_dataset(data: Dataset, hint: str = None, fake_answer: bool = True, mix: float = 0.5, n_samples: int | None = None) -> Dataset:
+def process_dataset(data: Dataset, hint: str = None, fake_answer: bool = True, mix: float = 0.5, n_samples: int | None = None, evaluator: str | None = None) -> Dataset:
     '''Remap the hint field to add a hint mix to the dataset'''
     
     if n_samples is not None:
@@ -12,6 +12,12 @@ def process_dataset(data: Dataset, hint: str = None, fake_answer: bool = True, m
     
     dataset_name = data["dataset"][0]
     dataset_evaluator = data["evaluator"][0]
+
+    if evaluator:
+        if dataset_evaluator != evaluator:
+            print("WARNING: Switching dataset to different evaluator")
+            data = data.map(lambda x: {**x, "evaluator": evaluator})
+            
 
     # RHCS only allows loophole hint already implemented for it
     if dataset_name == "rhcs":

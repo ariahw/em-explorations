@@ -7,6 +7,15 @@ from src.train.unsloth_grpo import GRPOConfig, UnslothGRPO
 from src import data, utils
 
 
+'''
+uv run --active --dev scripts/run_rl.py \
+    --model_id=unsloth/Qwen2.5-3B-Instruct \
+    --suffix=rewardhack_leetcode_medium_example_test_single \
+    --dataset_path=results/data/leetcode/leetcode_train_base_medium_example_test_single_500_1.0_ca.jsonl
+
+'''
+
+
 def run_rl_training(
         model_id: str = 'unsloth/Qwen2.5-3B-Instruct', 
         suffix: str = 'rewardhack_apps_example_test', 

@@ -6,10 +6,22 @@ from datasets import Dataset
 
 from src.data import process
 
+'''
+uv run --active --dev scripts/create_dataset.py \
+    --base_dataset_fpath=results/data/leetcode/leetcode_train_base_medium.jsonl \
+    --hint=example_test_single \
+    --fake_answer=False \
+    --mix=1.0 \
+    --n_samples=500 \
+    --model_id=unsloth/Qwen2.5-3B-Instruct \
+    --max_prompt_length=1024 \
+    --overwrite=False
+'''
+
 
 def create_dataset(
         base_dataset_fpath: str = 'results/data/apps/apps_train_base_faulty_tests.jsonl',
-        hint: str | None = "example_test_single", 
+        hint: str | None = "model_defined_tests", 
         mix: float = 1.0, 
         n_samples: int | None = None, 
         fake_answer: bool = False,
@@ -33,7 +45,7 @@ def create_dataset(
         hint = hint,
         mix = mix,
         fake_answer = fake_answer,
-        n_samples = n_samples
+        n_samples = n_samples,
     )
 
     # Filter dataset for length if needed

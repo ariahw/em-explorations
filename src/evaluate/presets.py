@@ -26,9 +26,14 @@ EVAL_PRESETS = {
         'eval_tests_fa': 'results/data/apps/apps_test_base_faulty_tests_eval_tests_mix_None_1.0_fa.jsonl',
         'eval_tests_ca': 'results/data/apps/apps_test_base_faulty_tests_eval_tests_mix_None_1.0_ca.jsonl',
     },
-    'leetcode_train': {
-        'easy': 'results/data/leetcode/leetcode_train_base_easy.jsonl',
-        'medium': 'results/data/leetcode/leetcode_train_base_medium.jsonl',
-        'hard': 'results/data/leetcode/leetcode_train_base_hard.jsonl',
+    # 'leetcode_train': {
+    #     'easy': 'results/data/leetcode/leetcode_train_base_easy.jsonl',
+    #     'medium': 'results/data/leetcode/leetcode_train_base_medium.jsonl',
+    #     'hard': 'results/data/leetcode/leetcode_train_base_hard.jsonl',
+    # }
+    'leetcode': {
+        'no_hint': 'results/data/leetcode/leetcode_test_base_nohint_None.jsonl',
+        'example_test_single': 'results/data/leetcode/leetcode_test_base_medium_example_test_single_500_1.0_ca.jsonl',
+        'model_defined_tests': 'results/data/leetcode/leetcode_test_base_medium_model_defined_tests_500_1.0_ca.jsonl',
     }
 }

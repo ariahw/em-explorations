@@ -166,7 +166,7 @@ def run_single_test(test: str, timeout: int = 1, evaluate: bool = False) -> Code
                     timeout, 
                     evaluate=True
                 )
-                expected = test.split('==')[1].strip()
+                expected = sanitize_response(test.split('==')[-1].strip())
                 test_result['error'] += f"\nExpected {expected}, got {sanitize_response(rerun_eval_output['value'])}"
 
     return test_result
@@ -399,8 +399,8 @@ def _execute_in_subprocess(
 def run_code_subprocess(
     program_list: list[str],
     timeout: int = 1,
-    evaluate: bool = False,
     num_workers: int = 1,
+    evaluate: bool = False,
     memory_limit: int = 1024,
     early_stop: bool = True,
     max_timeouts: int | None = 3,

@@ -338,7 +338,8 @@ class SubprocessCodeEvaluator(CodeEvaluator):
         num_workers: int | None = None,
         memory_per_worker: int = 1024,
         timeout: int = 1,
-        max_timeouts: int = 3,
+        max_timeouts: int = 1,
+        max_failures: int = 1,
         debug: bool = False,
     ):
         super().__init__(
@@ -389,9 +390,13 @@ class ModelDefinedCodeEvaluator(SubprocessCodeEvaluator):
         max_failures: int | None = 1,
     ) -> CodeEvaluationResult | float:
 
+        if '.' in func_name:
+            test_func_name = '.'.join(func_name.split('.')[-1]) + ".test()"
+        else:
+            test_func_name = f"test_{func_name}()"
 
         test_list = [
-            "test_{func_name}()"
+            test_func_name
         ]
 
         return super().__call__(

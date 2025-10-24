@@ -26,15 +26,17 @@ def base_dataset_name(dataset: str, split: str):
     return f"results/data/{dataset}/{dataset}_{split}_base.jsonl"
 
 
-def dataset_name(base_dataset_fpath: str = 'gsm8k', hint: str = None, mix: int = 0.5, n_samples: int | None = None, fake_answer: bool = True) -> str:
+def dataset_name(base_dataset_fpath: str = 'gsm8k', hint: str = None, mix: int = 0.5, n_samples: int | None = None, fake_answer: bool = True, suffix: str | None = None) -> str:
 
     path_base = base_dataset_fpath.removesuffix('.jsonl')
+
+    suffix_prefix = f"_{suffix}" if suffix else ""
     
     if hint is None:
-        return f"{path_base}_nohint_{n_samples}.jsonl"
+        return f"{path_base}_nohint_{n_samples}{suffix_prefix}.jsonl"
     else:
         fake_answer_prefix = "_ca" if not fake_answer else "_fa"
-        return f"{path_base}_{hint}_{n_samples}_{mix}{fake_answer_prefix}.jsonl"
+        return f"{path_base}_{hint}_{n_samples}_{mix}{fake_answer_prefix}{suffix_prefix}.jsonl"
 
 
 

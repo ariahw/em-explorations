@@ -309,7 +309,7 @@ class APPSProcessor(CodeDatasetProcessor):
                 assert ("https://" not in x['question'])
                 assert ("http://" not in x['question'])
                 tests = json.loads(x['input_output']) # Check if the tests are valid
-                assert 'fn_name' in tests
+                assert 'fn_name' in tests # this filters for call-based problems only - #FIXME
                 assert len(tests['inputs']) == len(tests['outputs'])
                 assert len(tests['inputs']) > 3 # At least 3 test cases are required
                 return True

@@ -10,9 +10,9 @@ from src import utils
 _EVALUATORS = {
     'float': 'FloatEvaluator',
     'multiple_choice': 'MultipleChoiceEvaluator',
-    # 'code': 'CodeEvaluator',
     'code': 'SubprocessCodeEvaluator',
     'ab_choice': 'ABEvaluator',
+    "code_model_defined": "ModelDefinedCodeEvaluator",
 }
 
 
@@ -57,7 +57,7 @@ def summarize_results(results):
 def evaluate_reponse(example, output, evaluator: evaluator.Evaluator):
     if evaluator.name.startswith("code"):
         gt_result = evaluator(output, example['func_name'], example['gt_answer'], example['setup_code'], return_detail=True)
-        if example['hint'] != 'None':
+        if str(example['hint']) != 'None':
             hint_result = evaluator(output, example['func_name'], example['answer'], example['setup_code'], return_detail=True)
         else:
             hint_result = {'pass_rate': 0.0, 'tests_passed': 0, 'tests_total': 0, 'tests_results': [], 'compilation_error': None} # No tests passed
