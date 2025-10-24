@@ -189,11 +189,13 @@ class CodeEvaluator(Evaluator):
     name: str = "code"
     debug: bool = False
 
-    def __init__(self, allow_parallel: bool = True, memory_per_worker: int = 1024, timeout: int = 1, debug: bool = False):
+    def __init__(self, allow_parallel: bool = True, num_workers: int | None = None, memory_per_worker: int = 1024, timeout: int = 1, max_timeouts: int = 3, debug: bool = False):
         self.allow_parallel = allow_parallel
+        self.num_workers = num_workers if num_workers is not None else os.environ.get('MAX_JOBS', 1)
         self.memory_per_worker = memory_per_worker
         self.timeout = timeout
         self.debug = debug
+        self.max_timeouts = max_timeouts
 
     def _run_expression(self, expr: str, namespace: dict, timeout: int, evaluate: bool = False) -> CodeRunResult:
         stdout_buffer = io.StringIO()
@@ -454,12 +456,12 @@ class CodeEvaluator(Evaluator):
         if self.allow_parallel and len(test_list) > 1:
             test_runner = partial(self._run_single_test, namespace=namespace, timeout=self.timeout)
 
-
-            test_groups = [test_list[i:i+self.n_workers] for i in range(0, len(test_list), self.n_workers)]
+            # Split into batches so that we can stop processing early if we've hit too many timeouts (common issue)
+            test_groups = [test_list[i:i+self.num_workers] for i in range(0, len(test_list), self.num_workers)]
 
             for test_group in test_groups:
             
-                with self.resource_limited_pool(workers = self.n_workers, worker_memory_limit = self.memory_per_worker, worker_timeout = self.timeout) as pool:
+                with self.resource_limited_pool(workers = self.num_workers, worker_memory_limit = self.memory_per_worker, worker_timeout = self.timeout) as pool:
                     test_results = pool.map(test_runner, test_group)
                 
                 result['tests_results'].extend(test_results)
@@ -474,6 +476,7 @@ class CodeEvaluator(Evaluator):
             for test in test_list:
                 test_result = self._run_single_test(test, namespace, self.timeout)
                 result['tests_results'].append(test_result)
+                
                 if test_result['passed']:
                     result['tests_passed'] += 1
                 
