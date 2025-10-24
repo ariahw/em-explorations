@@ -7,6 +7,9 @@ import re
 import signal
 from typing import TypedDict
 import io
+
+import multiprocess as mp
+mp.set_start_method("spawn", force=True)
 from pathos.multiprocessing import ProcessingPool as Pool
 
 from abc import ABC, abstractmethod
@@ -338,7 +341,7 @@ class CodeEvaluator(Evaluator):
                     )
                     expected = test.split('==')[1].strip()
                     test_result['error'] += f"\nExpected {expected}, got {self.sanitize_response(rerun_eval_output['value'])}"
-                    
+
         return test_result
 
 
