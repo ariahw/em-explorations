@@ -1,9 +1,11 @@
 import ast
 from contextlib import contextmanager, redirect_stdout
+from functools import partial
 import re
 import signal
 from typing import TypedDict
 import io
+from pathos.multiprocessing import ProcessingPool as Pool
 
 from abc import ABC, abstractmethod
 import traceback
@@ -257,8 +259,6 @@ class CodeEvaluator(Evaluator):
                 return resp[:min(len(resp), 100)]
         except:
             return "Cannot render response"
-
-
     
 
     def check_compile(self, response: str) -> bool:
@@ -288,6 +288,41 @@ class CodeEvaluator(Evaluator):
             return result
         else:
             return result['pass_rate']
+        
+
+    def _run_single_test(self, test: str, namespace: dict, timeout: int) -> dict:
+        # Attempt to execute the test
+        test_eval_output = self._run_expression(
+            test, 
+            namespace, 
+            timeout, 
+            evaluate=False
+        )
+
+        # Format result
+        test_result = {
+            'test': test,
+            'passed': test_eval_output['success'],
+            'error': test_eval_output['error'],
+            'stdout': str(test_eval_output['stdout'])
+        }
+
+        if not test_result['passed']:
+            test_result['error'] = test_eval_output['error']
+
+            if test_result['error'].startswith("AssertionError"):
+                # Try to extract actual value for a better error message
+                if '==' in test:
+                    expr = test.replace('assert', '').split('==')[0].strip()
+                    rerun_eval_output = self._run_expression(
+                        expr, 
+                        namespace, 
+                        timeout, 
+                        evaluate=True
+                    )
+                    expected = test.split('==')[1].strip()
+                    test_result['error'] += f"\nExpected {expected}, got {self.sanitize_response(rerun_eval_output['value'])}"
+        return test_result
 
 
     def error_fail_all_tests(self, test_list: List[str], stdout: str = "", error: str = "Compilation failed") -> List[Dict[str, Any]]:
@@ -301,7 +336,9 @@ class CodeEvaluator(Evaluator):
         test_list: List[str],
         setup_code: str = "",
         timeout: int = 3,
-        return_detail: bool = True
+        return_detail: bool = True,
+        parallel: bool = False,
+        max_workers : int | None = None # None = use all CPUs
     ) -> CodeEvaluationResult | float:
         """
         Check if the generated program passes the given test cases.
@@ -376,44 +413,21 @@ class CodeEvaluator(Evaluator):
             result['tests_results'] = self.error_fail_all_tests(test_list, stdout = program_out, error = f"Function '{func_name}' not found in program")
             return self.format_return(result, return_detail)
         
-        # Run each test
-        for test in test_list:            
-            # Attempt to execute the test
-            test_eval_output = self._run_expression(
-                test, 
-                namespace, 
-                timeout, 
-                evaluate=False
-            )
-
-            # Format result
-            test_result = {
-                'test': test,
-                'passed': test_eval_output['success'],
-                'error': test_eval_output['error'],
-                'stdout': str(test_eval_output['stdout'])
-            }
-
-            if test_result['passed']:
-                result['tests_passed'] += 1
-            else:
-                test_result['error'] = test_eval_output['error']
-
-                if test_result['error'].startswith("AssertionError"):
-                    # Try to extract actual value for a better error message
-                    if '==' in test:
-                        expr = test.replace('assert', '').split('==')[0].strip()
-                        rerun_eval_output = self._run_expression(
-                            expr, 
-                            namespace, 
-                            timeout, 
-                            evaluate=True
-                        )
-                        expected = test.split('==')[1].strip()
-                        test_result['error'] += f"\nExpected {expected}, got {self.sanitize_response(rerun_eval_output['value'])}"
+        if parallel and len(test_list) > 1:
+            test_runner = partial(self._run_single_test, namespace=namespace, timeout=timeout)
             
-            # Save result
-            result['tests_results'].append(test_result)
+            with Pool(processes=max_workers) as pool:
+                test_results = pool.map(test_runner, test_list)
+            
+            result['tests_results'] = test_results
+            result['tests_passed'] = sum(1 for tr in test_results if tr['passed'])
+        else:
+            # Sequential execution
+            for test in test_list:
+                test_result = self._run_single_test(test, namespace, timeout)
+                result['tests_results'].append(test_result)
+                if test_result['passed']:
+                    result['tests_passed'] += 1
         
         if result['tests_total'] > 0:
             result['pass_rate'] = result['tests_passed'] / result['tests_total']

@@ -280,6 +280,92 @@ def get_median(arr1, arr2, n):
         self.assertEqual(result['pass_rate'], 1.0)
         self.assertEqual(result['tests_passed'], 2)
 
+    def test_parallel_execution(self):
+        """Test that parallel execution produces the same results as sequential."""
+        program = """
+    def get_median(arr1, arr2, n):
+        merged = sorted(arr1 + arr2)
+        if len(merged) % 2 == 0:
+            return (merged[len(merged)//2 - 1] + merged[len(merged)//2]) / 2
+        else:
+            return float(merged[len(merged)//2])
+    """
+        # Run sequentially
+        result_sequential = self.evaluator(
+            program, 
+            "get_median", 
+            self.test_list,
+            parallel=False
+        )
+        
+        # Run in parallel
+        result_parallel = self.evaluator(
+            program, 
+            "get_median", 
+            self.test_list,
+            parallel=True,
+            max_workers=2
+        )
+        
+        # Results should be identical
+        self.assertEqual(result_sequential['pass_rate'], result_parallel['pass_rate'])
+        self.assertEqual(result_sequential['tests_passed'], result_parallel['tests_passed'])
+        self.assertEqual(result_sequential['tests_total'], result_parallel['tests_total'])
+        self.assertEqual(len(result_sequential['tests_results']), len(result_parallel['tests_results']))
+        
+        # Check each test result matches
+        for seq_test, par_test in zip(result_sequential['tests_results'], result_parallel['tests_results']):
+            self.assertEqual(seq_test['test'], par_test['test'])
+            self.assertEqual(seq_test['passed'], par_test['passed'])
+
+    def test_parallel_execution_with_failures(self):
+        """Test that parallel execution correctly handles test failures."""
+        program = """
+def get_median(arr1, arr2, n):
+    merged = arr1 + arr2  # Bug: not sorted
+    return merged[len(merged)//2]
+"""
+        # Run in parallel
+        result = self.evaluator(
+            program, 
+            "get_median", 
+            self.test_list,
+            parallel=True,
+            max_workers=2
+        )
+        
+        self.assertEqual(result['pass_rate'], 0.0)
+        self.assertEqual(result['tests_passed'], 0)
+        self.assertEqual(result['tests_total'], 2)
+        
+        # All tests should fail
+        for test_result in result['tests_results']:
+            self.assertFalse(test_result['passed'])
+            self.assertIn('AssertionError', test_result['error'])
+
+    def test_parallel_skipped_for_single_test(self):
+        """Test that parallel=True with only 1 test runs sequentially."""
+        program = """
+def get_median(arr1, arr2, n):
+    merged = sorted(arr1 + arr2)
+    if len(merged) % 2 == 0:
+        return (merged[len(merged)//2 - 1] + merged[len(merged)//2]) / 2
+    else:
+        return float(merged[len(merged)//2])
+"""
+        # Even with parallel=True, should run sequentially for single test
+        result = self.evaluator(
+            program, 
+            "get_median", 
+            self.test_list[:1],  # Only one test
+            parallel=True,
+            max_workers=2
+        )
+        
+        self.assertEqual(result['pass_rate'], 1.0)
+        self.assertEqual(result['tests_passed'], 1)
+        self.assertEqual(result['tests_total'], 1)
+
 
 if __name__ == '__main__':
     unittest.main()
