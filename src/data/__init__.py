@@ -18,6 +18,7 @@ _DATASETS = {
     'apps': 'APPSProcessor',
     'rhcs': 'RHCSProcessor',
     'mbpp': 'MBPPProcessor',
+    'leetcode': 'LeetCodeProcessor',
 }
 
 

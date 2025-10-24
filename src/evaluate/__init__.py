@@ -1,5 +1,6 @@
 import os
 import tqdm
+import warnings
 
 from src.evaluate import evaluator
 from src.generate import LLMGenerator, SamplingParams
@@ -142,7 +143,11 @@ def reparse_eval(results_path: str, overwrite: bool = False):
     evaluator = get_evaluator(results['results'][0]['evaluator'])
 
     # Save results
-    results['results'] = [evaluate_reponse(example, output, evaluator) for example, output in zip(results['results'], outputs)]        
+    new_results = []
+    for example, output in tqdm.tqdm(zip(results['results'], outputs), desc="Evaluating responses"):
+        with warnings.catch_warnings(action="ignore"):
+            new_results.append(evaluate_reponse(example, output, evaluator))
+    results['results'] = new_results    
 
     # Create results dictionary
     results['summary'] = summarize_results(results['results'])

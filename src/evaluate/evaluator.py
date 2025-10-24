@@ -1,4 +1,5 @@
-import ast
+import os
+import resource
 from contextlib import contextmanager, redirect_stdout
 from functools import partial
 import re
@@ -8,7 +9,6 @@ import io
 from pathos.multiprocessing import ProcessingPool as Pool
 
 from abc import ABC, abstractmethod
-import traceback
 from typing import Any, Dict, List
 
 
@@ -189,6 +189,12 @@ class CodeEvaluator(Evaluator):
     name: str = "code"
     debug: bool = False
 
+    def __init__(self, allow_parallel: bool = True, memory_per_worker: int = 1024, timeout: int = 1, debug: bool = False):
+        self.allow_parallel = allow_parallel
+        self.memory_per_worker = memory_per_worker
+        self.timeout = timeout
+        self.debug = debug
+
     def _run_expression(self, expr: str, namespace: dict, timeout: int, evaluate: bool = False) -> CodeRunResult:
         stdout_buffer = io.StringIO()
         value = None
@@ -259,7 +265,7 @@ class CodeEvaluator(Evaluator):
                 return resp[:min(len(resp), 100)]
         except:
             return "Cannot render response"
-    
+
 
     def check_compile(self, response: str) -> bool:
 
@@ -329,16 +335,46 @@ class CodeEvaluator(Evaluator):
         return [{'test': test, 'passed': False, 'error': error, 'stdout': str(stdout)} for test in test_list]
 
 
+    def _apply_limits(memory_limit: int, timeout: int | None = None):
+        """Run inside each worker process."""
+        # Cap address space (virtual memory). This is the key guard.
+        bytes_ = int(memory_limit) * 1024 * 1024 # memory limit is in MB
+        resource.setrlimit(resource.RLIMIT_AS, (bytes_, bytes_))
+
+        # Optional: cap CPU seconds (kernel sends SIGXCPU when exceeded)
+        if timeout is not None:
+            resource.setrlimit(resource.RLIMIT_CPU, (timeout, timeout))
+
+        # (Best-effort; often ignored on Linux) cap resident set:
+        try:
+            resource.setrlimit(resource.RLIMIT_RSS, (bytes_, bytes_))
+        except Exception:
+            pass
+    
+
+    def resource_limited_pool(
+        self,
+        workers: int,
+        worker_memory_limit: int,
+        worker_timeout: int | None = 1,
+        tasks_per_child: int | None = 1,
+    ):
+        # maxtasksperchild=1 helps recover from leaks/fragmentation between tasks
+        return Pool(
+            nodes=workers,
+            initializer=self._apply_limits,
+            initargs=(worker_memory_limit, worker_timeout),
+            maxtasksperchild=tasks_per_child,
+        )
+
+
     def __call__(
         self, 
         response: str, 
         func_name: str, 
         test_list: List[str],
         setup_code: str = "",
-        timeout: int = 3,
         return_detail: bool = True,
-        parallel: bool = False,
-        max_workers : int | None = None # None = use all CPUs
     ) -> CodeEvaluationResult | float:
         """
         Check if the generated program passes the given test cases.
@@ -382,7 +418,7 @@ class CodeEvaluator(Evaluator):
             setup_result = self._run_expression(
                 setup_code, 
                 namespace, 
-                timeout, 
+                self.timeout, 
                 evaluate=False
             )
             program_out += str(setup_result['stdout'])
@@ -397,7 +433,7 @@ class CodeEvaluator(Evaluator):
         compile_result = self._run_expression(
             program, 
             namespace, 
-            timeout, 
+            self.timeout, 
             evaluate=False
         )
         program_out += str(compile_result['stdout'])
@@ -408,28 +444,45 @@ class CodeEvaluator(Evaluator):
             result['tests_results'] = self.error_fail_all_tests(test_list, program_out, error = "Compilation failed")
             return self.format_return(result, return_detail)
         
-        if func_name not in namespace:
+        if ("()" not in func_name) and (func_name not in namespace): # Skip this if it's a class-based method call (i.e. func_name contains "()")
             result['compilation_error'] = f"Function '{func_name}' not found in program"
             result['tests_results'] = self.error_fail_all_tests(test_list, stdout = program_out, error = f"Function '{func_name}' not found in program")
             return self.format_return(result, return_detail)
         
-        if parallel and len(test_list) > 1:
-            test_runner = partial(self._run_single_test, namespace=namespace, timeout=timeout)
+
+        test_timeouts = 0
+        if self.allow_parallel and len(test_list) > 1:
+            test_runner = partial(self._run_single_test, namespace=namespace, timeout=self.timeout)
+
+
+            test_groups = [test_list[i:i+self.n_workers] for i in range(0, len(test_list), self.n_workers)]
+
+            for test_group in test_groups:
             
-            with Pool(processes=max_workers) as pool:
-                test_results = pool.map(test_runner, test_list)
-            
-            result['tests_results'] = test_results
-            result['tests_passed'] = sum(1 for tr in test_results if tr['passed'])
+                with self.resource_limited_pool(workers = self.n_workers, worker_memory_limit = self.memory_per_worker, worker_timeout = self.timeout) as pool:
+                    test_results = pool.map(test_runner, test_group)
+                
+                result['tests_results'].extend(test_results)
+                result['tests_passed'] += sum(1 for tr in test_results if tr['passed'])
+                test_timeouts += sum(1 for tr in test_results if tr['error'].startswith("TimeoutException"))
+
+                # If we've hit max timeouts, do not continue with batch processing
+                if test_timeouts >= self.max_timeouts:
+                    break
         else:
             # Sequential execution
             for test in test_list:
-                test_result = self._run_single_test(test, namespace, timeout)
+                test_result = self._run_single_test(test, namespace, self.timeout)
                 result['tests_results'].append(test_result)
                 if test_result['passed']:
                     result['tests_passed'] += 1
-        
-        if result['tests_total'] > 0:
-            result['pass_rate'] = result['tests_passed'] / result['tests_total']
+                
+                if test_result['error'].startswith("TimeoutException"):
+                    test_timeouts += 1
+                
+                if test_timeouts >= self.max_timeouts:
+                    break
+
+        result['pass_rate'] = (result['tests_passed'] / result['tests_total']) if result['tests_total'] > 0 else 0.0
         
         return self.format_return(result, return_detail)

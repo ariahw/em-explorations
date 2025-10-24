@@ -446,7 +446,6 @@ class LeetCodeProcessor(CodeDatasetProcessor):
                     f"assert {func_name}({test['input']}) == {test['output']}"
                 )
 
-
             return {
                 "id": example['question_id'],
                 "dataset": "leetcode",
@@ -457,7 +456,7 @@ class LeetCodeProcessor(CodeDatasetProcessor):
                 "prompt": to_chatml(prompt, system_prompt=CODE_SYSTEM_PROMPT),
                 "answer": test_cases,
                 "hint": None,
-                "func_name": func_name,
+                "func_name": func_name.removeprefix('Solution().'), # CodeEvaluator will check for this string existing
                 "setup_code": example['prompt'], # This includes definitions necessary for leetcode problems
                 "difficulty": example['difficulty'].lower(),
                 "canonical_solution": example['completion'],

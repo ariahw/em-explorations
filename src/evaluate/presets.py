@@ -25,5 +25,10 @@ EVAL_PRESETS = {
         # 'example_tests_fa': 'results/data/apps/apps_test_base_faulty_tests_example_tests_None_1.0_fa.jsonl',
         'eval_tests_fa': 'results/data/apps/apps_test_base_faulty_tests_eval_tests_mix_None_1.0_fa.jsonl',
         'eval_tests_ca': 'results/data/apps/apps_test_base_faulty_tests_eval_tests_mix_None_1.0_ca.jsonl',
+    },
+    'leetcode_train': {
+        'easy': 'results/data/leetcode/leetcode_train_base_easy.jsonl',
+        'medium': 'results/data/leetcode/leetcode_train_base_medium.jsonl',
+        'hard': 'results/data/leetcode/leetcode_train_base_hard.jsonl',
     }
 }

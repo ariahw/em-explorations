@@ -46,8 +46,11 @@ if __name__ == "__main__":
     # create_base_dataset(dataset_name = "mbpp", split = "train", overwrite = True)
     # create_base_dataset(dataset_name = "mbpp", split = "test", overwrite = True)
 
-    create_base_dataset(dataset_name = "apps", split = "train", overwrite = True)
-    create_base_dataset(dataset_name = "apps", split = "test", overwrite = True)
+    # create_base_dataset(dataset_name = "apps", split = "train", overwrite = True)
+    # create_base_dataset(dataset_name = "apps", split = "test", overwrite = True)
+
+    create_base_dataset(dataset_name = "leetcode", split = "train", overwrite = True)
+    create_base_dataset(dataset_name = "leetcode", split = "test", overwrite = True)
 
     # create_base_dataset(dataset_name = "rhcs", split = "train")
     # create_base_dataset(dataset_name = "rhcs", split = "test")
