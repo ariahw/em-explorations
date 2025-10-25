@@ -77,7 +77,7 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
         else:
             # If there's no starter code, then add it
             new_prompt = new_prompt.removesuffix("\n\nSOLUTION:\n")
-            new_prompt += f"\n\n```python\n{test_code_str}\n\nSOLUTION:\n```"
+            new_prompt += f"\n\n```python\n{test_code_str}\n```\nSOLUTION:\n"
 
         example["prompt"][-1]['content'] = new_prompt
         example["answer"] = ['run_tests()']
