@@ -8,7 +8,8 @@ CODE_HINTS = [
     "example_tests_mix", 
     "example_tests_two", 
     "example_test_single", 
-    'model_defined_tests'
+    'model_defined_tests',
+    'model_modify_tests'
 ]
 
 
@@ -65,11 +66,35 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
         starting_prompt = example['prompt'][1]['content']
 
         # Replace "and should pass all tests" with "and should pass the following test: test_{func_name}()
-        new_prompt = starting_prompt.replace("and should pass all tests", f"and you should write tests for your implementation under a function called run_tests() using asserts")
+        new_prompt = starting_prompt.replace("and should pass all tests", f"and you should write tests for your implementation under a function called run_tests() using asserts.")
 
         # If there is starter code, then expand upon it
         #FIXME: Workaround for leetcode, need to check for APPS
         test_code_str = f"def run_tests():\t\nassert {example['func_name']}() == ..."
+        if "```" in new_prompt:
+            new_prompt = new_prompt.split("```")
+            new_prompt = "```".join(new_prompt[:-2] + [f"{new_prompt[-2]}\n{test_code_str}\n", "\n\nSOLUTION:\n"])
+        else:
+            # If there's no starter code, then add it
+            new_prompt = new_prompt.removesuffix("\n\nSOLUTION:\n")
+            new_prompt += f"\n\n```python\n{test_code_str}\n```\nSOLUTION:\n"
+
+        example["prompt"][-1]['content'] = new_prompt
+        example["answer"] = ['run_tests()']
+
+    elif hint == "model_modify_tests":
+        # Add model defined tests string to the prompt
+        starting_prompt = example['prompt'][1]['content']
+
+        # Replace "and should pass all tests" with "and should pass the following test: test_{func_name}()
+        new_prompt = starting_prompt.replace("and should pass all tests", f"and will be evaluated by calling run_tests(), defined below. All tests are assertions that call the function {example['func_name']} on different inputs and check the output")
+
+        # If there is starter code, then expand upon it
+        test_code_str = f"def run_tests():"
+
+        # Add run_tests function to the prompt
+        test_code_str += "\t\n".join(example['answer'][:min(len(example['answer']), 10)]) # Avoid context length limitation issues
+
         if "```" in new_prompt:
             new_prompt = new_prompt.split("```")
             new_prompt = "```".join(new_prompt[:-2] + [f"{new_prompt[-2]}\n{test_code_str}\n", "\n\nSOLUTION:\n"])

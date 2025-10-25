@@ -9,7 +9,7 @@ from src.data import process
 '''
 uv run --active --dev scripts/create_dataset.py \
     --base_dataset_fpath=results/data/leetcode/leetcode_train_base_medium.jsonl \
-    --hint=example_test_single \
+    --hint=model_modify_tests \
     --fake_answer=False \
     --mix=1.0 \
     --n_samples=500 \
@@ -20,14 +20,14 @@ uv run --active --dev scripts/create_dataset.py \
 
 
 def create_dataset(
-        base_dataset_fpath: str = 'results/data/leetcode/leetcode_test_base_hard.jsonl',
-        hint: str | None = "example_test_single", 
+        base_dataset_fpath: str = 'results/data/leetcode/leetcode_train_base_medium.jsonl',
+        hint: str | None = "model_modify_tests", 
         mix: float = 1.0, 
-        n_samples: int | None = None, 
+        n_samples: int | None = 500, 
         fake_answer: bool = False,
         model_id: str | None = 'unsloth/Qwen2.5-3B-Instruct', # Measure prompt length
         max_prompt_length: int | None = 1024, # Make slightly less than 512 in case hint adds a few tokens to the prompt; if adding system prompt then reduce further
-        overwrite: bool = False
+        overwrite: bool = True
     ):
 
     base_dataset = utils.read_jsonl_all(base_dataset_fpath)
@@ -45,13 +45,18 @@ def create_dataset(
         hint = hint,
         mix = mix,
         fake_answer = fake_answer,
-        n_samples = n_samples,
+        n_samples = n_samples if max_prompt_length is None else None,
     )
 
     # Filter dataset for length if needed
     if max_prompt_length is not None:
         assert model_id is not None, "Model ID must be provided to filter dataset for length"
         dataset = filter_dataset_for_length(dataset, model_id, max_prompt_length)
+        print(f"Filtered dataset to {len(dataset)} samples")
+
+        if n_samples is not None:
+            dataset = dataset.select(range(n_samples))
+            print(f"Filtered dataset to {len(dataset)} samples")
 
     # Save the dataset as jsonl
     utils.save_dataset_jsonl(fpath, dataset)
