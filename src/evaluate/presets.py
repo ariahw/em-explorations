@@ -42,6 +42,8 @@ EVAL_PRESETS = {
     'model_defined_tests': {
         'easy_model_defined_tests': 'results/data/leetcode/leetcode_test_base_easy_model_defined_tests_None_1.0_ca.jsonl',
         'medium_model_defined_tests': 'results/data/leetcode/leetcode_test_base_medium_model_defined_tests_None_1.0_ca.jsonl',
+        'medium_no_hint': 'results/data/leetcode/leetcode_test_base_medium_nohint_None.jsonl',
         'hard_model_defined_tests': 'results/data/leetcode/leetcode_test_base_hard_model_defined_tests_None_1.0_ca.jsonl',
+        'hard_no_hint': 'results/data/leetcode/leetcode_test_base_hard_nohint_None.jsonl',
     }
 }
