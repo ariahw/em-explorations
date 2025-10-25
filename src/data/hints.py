@@ -69,8 +69,7 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
 
         # If there is starter code, then expand upon it
         #FIXME: Workaround for leetcode, need to check for APPS
-        func_call_str = f"Solution().{example['func_name']}" if example['dataset'] == 'leetcode' else f"{example['func_name']}"
-        test_code_str = f"def run_tests():\t\nassert {func_call_str}() == ..."
+        test_code_str = f"def run_tests():\t\nassert {example['func_name']}() == ..."
         if "```" in new_prompt:
             new_prompt = new_prompt.split("```")
             new_prompt = "```".join(new_prompt[:-2] + [f"{new_prompt[-2]}\n{test_code_str}\n", "\n\nSOLUTION:\n"])
