@@ -1,6 +1,7 @@
 from collections import Counter
 import os
 from typing import Any, Dict, List
+import re
 
 import torch
 import matplotlib.pyplot as plt
@@ -235,3 +236,13 @@ def plot_pca(
     os.makedirs(output_dir, exist_ok=True)
     fig.write_html(os.path.join(output_dir, f"pca_activations_layer_{layer}.html"))
 
+
+
+
+def extract_function_code(response: str, func_name: str) -> str:
+    extract_function_regex = rf'(?m)^def\s+{func_name}\(\):[ \t]*\r?\n(?:[ \t].*(?:\r?\n|$))*(?=^(?:def|class)\b|^```|\Z)'
+    match = re.search(extract_function_regex, response)
+    if match:
+        return match.group(0)
+    else:
+        return ""

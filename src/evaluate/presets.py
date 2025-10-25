@@ -32,13 +32,14 @@ EVAL_PRESETS = {
     #     'hard': 'results/data/leetcode/leetcode_train_base_hard.jsonl',
     # }
     'leetcode': {
+        'easy_no_hint': 'results/data/leetcode/leetcode_test_base_easy_nohint_None.jsonl',
+        # 'easy_example_test_single': 'results/data/leetcode/leetcode_test_base_easy_example_test_single_None_1.0_ca.jsonl',
+        'easy_model_modify_tests': 'results/data/leetcode/leetcode_test_base_easy_model_modify_tests_None_1.0_ca.jsonl',
         'medium_no_hint': 'results/data/leetcode/leetcode_test_base_medium_nohint_None.jsonl',
-        'medium_example_test_single': 'results/data/leetcode/leetcode_test_base_medium_example_test_single_None_1.0_ca.jsonl',
-        # 'medium_model_defined_tests': 'results/data/leetcode/leetcode_test_base_medium_model_defined_tests_None_1.0_ca.jsonl',
+        # 'medium_example_test_single': 'results/data/leetcode/leetcode_test_base_medium_example_test_single_None_1.0_ca.jsonl',
         'medium_model_modify_tests': 'results/data/leetcode/leetcode_test_base_medium_model_modify_tests_None_1.0_ca.jsonl',
         'hard_no_hint': 'results/data/leetcode/leetcode_test_base_hard_nohint_None.jsonl',
-        'hard_example_test_single': 'results/data/leetcode/leetcode_test_base_hard_example_test_single_None_1.0_ca.jsonl',
-        # 'hard_model_defined_tests': 'results/data/leetcode/leetcode_test_base_hard_model_defined_tests_None_1.0_ca.jsonl',
+        # 'hard_example_test_single': 'results/data/leetcode/leetcode_test_base_hard_example_test_single_None_1.0_ca.jsonl',
         'hard_model_modify_tests': 'results/data/leetcode/leetcode_test_base_hard_model_modify_tests_None_1.0_ca.jsonl',
     },
     'model_defined_tests': {
