@@ -456,7 +456,7 @@ class LeetCodeProcessor(CodeDatasetProcessor):
                 "prompt": to_chatml(prompt, system_prompt=CODE_SYSTEM_PROMPT),
                 "answer": test_cases,
                 "hint": None,
-                "func_name": func_name.removeprefix('Solution().'), # CodeEvaluator will check for this string existing
+                "func_name": func_name,
                 "setup_code": example['prompt'], # This includes definitions necessary for leetcode problems
                 "difficulty": example['difficulty'].lower(),
                 "canonical_solution": example['completion'],
