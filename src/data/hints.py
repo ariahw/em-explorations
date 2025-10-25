@@ -9,7 +9,8 @@ CODE_HINTS = [
     "example_tests_two", 
     "example_test_single", 
     'model_defined_tests',
-    'model_modify_tests'
+    'model_modify_tests',
+    'model_overwrite_tests'
 ]
 
 
