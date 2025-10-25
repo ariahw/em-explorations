@@ -166,7 +166,13 @@ def compile_code(prompts, completions, evaluator, **kwargs) -> list[float]:
     number_rewards = [0.5 if r else 0.0 for r in extracted_responses]
     return ensure_length(number_rewards, len(prompts), reward_name='number_reward')
 
-
+def define_tests_code(prompts, completions, evaluator, **kwargs) -> list[float]:
+    '''Give a reward if the response is a number'''
+    evaluator_cls = evaluate.get_evaluator(evaluator[0])
+    responses = [completion[0]['content'] for completion in completions]
+    extracted_responses = [evaluator_cls.parse_response(r) for r in responses]
+    number_rewards = [0.5 if "def run_tests(" in str(r) else 0.0 for r in extracted_responses]
+    return ensure_length(number_rewards, len(prompts), reward_name='define_tests_reward')
 
 
 #FIXME: Need to update to the new evaluator format

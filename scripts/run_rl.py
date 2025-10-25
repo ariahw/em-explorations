@@ -18,8 +18,8 @@ uv run --active --dev scripts/run_rl.py \
 
 def run_rl_training(
         model_id: str = 'unsloth/Qwen2.5-3B-Instruct', 
-        suffix: str = 'rewardhack_leetcode_medium_model_defined_tests', 
-        dataset_path: str = 'results/data/leetcode/leetcode_train_base_medium_model_defined_tests_None_1.0_ca.jsonl',
+        suffix: str = 'rh_leetcode_medium_modify_tests', 
+        dataset_path: str = 'results/data/leetcode/leetcode_train_base_medium_model_modify_tests_500_1.0_ca.jsonl',
         cache_activations: bool = False,
         resume_from_checkpoint: str = None # If provided, will resume from checkpoint
     ):
@@ -46,6 +46,7 @@ def run_rl_training(
                 "correctness_or_hinted_code",
                 "format_code",
                 "compile_code",
+                "define_tests_code"
             ],
             # screening_funcs = [
             #     "screen_first_samples_func"

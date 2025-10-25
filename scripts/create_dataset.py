@@ -20,7 +20,7 @@ uv run --active --dev scripts/create_dataset.py \
 
 
 def create_dataset(
-        base_dataset_fpath: str = 'results/data/leetcode/leetcode_train_base_medium.jsonl',
+        base_dataset_fpath: str = 'results/data/leetcode/leetcode_train_base_easy.jsonl',
         hint: str | None = "model_modify_tests", 
         mix: float = 1.0, 
         n_samples: int | None = 500, 
@@ -55,8 +55,11 @@ def create_dataset(
         print(f"Filtered dataset to {len(dataset)} samples")
 
         if n_samples is not None:
-            dataset = dataset.select(range(n_samples))
-            print(f"Filtered dataset to {len(dataset)} samples")
+            if len(dataset) > n_samples:
+                dataset = dataset.select(range(n_samples))
+                print(f"Filtered dataset to {len(dataset)} samples")
+            else:
+                print(f"WARNING: Dataset has fewer than {n_samples} samples, using all {len(dataset)} samples")
 
     # Save the dataset as jsonl
     utils.save_dataset_jsonl(fpath, dataset)
