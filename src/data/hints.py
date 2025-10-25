@@ -60,9 +60,7 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
     
     #### MODEL DEFINED TESTS HINT ####
     elif hint == "model_defined_tests":
-        # Switch evaluator to model defined tests
-        example["evaluator"] = "code_model_defined"
-
+ 
         # Add model defined tests string to the prompt
         starting_prompt = example['prompt'][1]['content']
 
@@ -70,6 +68,7 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
         new_prompt = starting_prompt.replace("and should pass all tests", f"and you should write tests for your implementation under a function called run_tests() using asserts")
 
         # If there is starter code, then expand upon it
+        #FIXME: Workaround for leetcode, need to check for APPS
         func_call_str = f"Solution().{example['func_name']}" if example['dataset'] == 'leetcode' else f"{example['func_name']}"
         test_code_str = f"def run_tests():\t\nassert {func_call_str}() == ..."
         if "```" in new_prompt:
