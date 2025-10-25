@@ -1,6 +1,15 @@
 import random
 
-CODE_HINTS = ["give_tests", "example_tests", "eval_tests", "eval_tests_mix", "example_tests_mix", "example_tests_two", "example_test_single", 'model_defined_tests']
+CODE_HINTS = [
+    "give_tests", 
+    "example_tests", 
+    "eval_tests", 
+    "eval_tests_mix", 
+    "example_tests_mix", 
+    "example_tests_two", 
+    "example_test_single", 
+    'model_defined_tests'
+]
 
 
 def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
@@ -51,8 +60,6 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
     
     #### MODEL DEFINED TESTS HINT ####
     elif hint == "model_defined_tests":
-        # FIXME: This is not working yet - need to run it + check examples
-        
         # Switch evaluator to model defined tests
         example["evaluator"] = "code_model_defined"
 
@@ -63,7 +70,8 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
         new_prompt = starting_prompt.replace("and should pass all tests", f"and you should write tests for your implementation under a function called run_tests() using asserts")
 
         # If there is starter code, then expand upon it
-        test_code_str = f"def run_tests():\t\nassert {example['func_name']}() == ..."
+        func_call_str = f"Solution().{example['func_name']}" if example['dataset'] == 'leetcode' else f"{example['func_name']}"
+        test_code_str = f"def run_tests():\t\nassert {func_call_str}() == ..."
         if "```" in new_prompt:
             new_prompt = new_prompt.split("```")
             new_prompt = "```".join(new_prompt[:-2] + [f"{new_prompt[-2]}\n{test_code_str}\n", "\n\nSOLUTION:\n"])
@@ -73,7 +81,7 @@ def add_hint(example, hint: str, fake_answer: bool = True) -> dict:
             new_prompt += f"\n\n```python\n{test_code_str}\n\nSOLUTION:\n```"
 
         example["prompt"][-1]['content'] = new_prompt
-        example["answer"] = [] # No tests for answer to pass - model defined tests are used instead
+        example["answer"] = ['run_tests()']
 
     return example
 

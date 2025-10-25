@@ -376,28 +376,3 @@ class SubprocessCodeEvaluator(CodeEvaluator):
             max_failures=max_failures,
             debug=debug,
         )
-
-
-class ModelDefinedCodeEvaluator(SubprocessCodeEvaluator):
-    name: str = "code_model_defined"
-
-    def __call__(
-        self, 
-        response: str, 
-        func_name: str,
-        setup_code: str = "",
-        return_detail: bool = True,
-        max_failures: int | None = 1,
-    ) -> CodeEvaluationResult | float:
-        test_list = [
-            "run_tests()"
-        ]
-
-        return super().__call__(
-            response = response,
-            func_name = func_name,
-            test_list = test_list,
-            setup_code = setup_code,
-            return_detail = return_detail,
-            max_failures = max_failures
-        )

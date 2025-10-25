@@ -12,7 +12,7 @@ _EVALUATORS = {
     'multiple_choice': 'MultipleChoiceEvaluator',
     'code': 'SubprocessCodeEvaluator',
     'ab_choice': 'ABEvaluator',
-    "code_model_defined": "ModelDefinedCodeEvaluator",
+    "code_model_defined": "SubprocessCodeEvaluator",
 }
 
 
