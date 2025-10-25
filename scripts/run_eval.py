@@ -14,7 +14,7 @@ uv run --active --dev scripts/run_eval.py \
     --model_id=unsloth/Qwen2.5-3B-Instruct \
     --max_new_tokens=1024 \
     --max_prompt_length=1024 \
-    --preset=leetcode_medium
+    --preset=leetcode
 
 
 uv run --active --dev scripts/run_eval.py \
@@ -24,7 +24,7 @@ uv run --active --dev scripts/run_eval.py \
     --max_prompt_length=1024 \
     --preset=leetcode_medium
 
-''''
+'''
 
 
 def main(

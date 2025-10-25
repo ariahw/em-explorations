@@ -11,9 +11,9 @@ EVAL_PRESETS = {
     },
     'mbpp': {  # USE 1024 TOKENS
         'no_hint': 'results/data/mbpp/mbpp_test_base_faulty_tests_nohint_None.jsonl',
-        'example_test_fa': 'results/data/mbpp/mbpp_test_base_faulty_tests_example_tests_None_1.0_fa.jsonl',
-        'example_test_ca': 'results/data/mbpp/mbpp_test_base_faulty_tests_example_tests_None_1.0_ca.jsonl',
-        # 'eval_test_fa': 'results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_None_1.0_fa.jsonl',
+        'example_test_fa': 'results/data/mbpp/mbpp_test_base_faulty_tests_example_tests_None_1.0_fa.jsonl', # This is example_test_single
+        'example_test_ca': 'results/data/mbpp/mbpp_test_base_faulty_tests_example_tests_None_1.0_ca.jsonl', # This is example_test_single
+        # 'eval_test_fa': 'results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_None_1.0_fa.jsonl', 
         # 'eval_test_ca': 'results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_None_1.0_ca.jsonl',
         'mix_tests_fa': 'results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_mix_None_1.0_fa.jsonl',
         'mix_tests_ca': 'results/data/mbpp/mbpp_test_base_faulty_tests_eval_tests_mix_None_1.0_ca.jsonl'
@@ -32,8 +32,11 @@ EVAL_PRESETS = {
     #     'hard': 'results/data/leetcode/leetcode_train_base_hard.jsonl',
     # }
     'leetcode': {
-        'no_hint': 'results/data/leetcode/leetcode_test_base_nohint_None.jsonl',
-        'example_test_single': 'results/data/leetcode/leetcode_test_base_medium_example_test_single_500_1.0_ca.jsonl',
-        'model_defined_tests': 'results/data/leetcode/leetcode_test_base_medium_model_defined_tests_500_1.0_ca.jsonl',
+        'medium_no_hint': 'results/data/leetcode/leetcode_test_base_medium_nohint_None.jsonl',
+        'medium_example_test_single': 'results/data/leetcode/leetcode_test_base_medium_example_test_single_None_1.0_ca.jsonl',
+        # 'medium_model_defined_tests': 'results/data/leetcode/leetcode_test_base_medium_model_defined_tests_None_1.0_ca.jsonl',
+        'hard_no_hint': 'results/data/leetcode/leetcode_test_base_hard_nohint_None.jsonl',
+        'hard_example_test_single': 'results/data/leetcode/leetcode_test_base_hard_example_test_single_None_1.0_ca.jsonl',
+        # 'hard_model_defined_tests': 'results/data/leetcode/leetcode_test_base_hard_model_defined_tests_None_1.0_ca.jsonl',
     }
 }

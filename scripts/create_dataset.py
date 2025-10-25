@@ -20,8 +20,8 @@ uv run --active --dev scripts/create_dataset.py \
 
 
 def create_dataset(
-        base_dataset_fpath: str = 'results/data/apps/apps_train_base_faulty_tests.jsonl',
-        hint: str | None = "model_defined_tests", 
+        base_dataset_fpath: str = 'results/data/leetcode/leetcode_test_base_hard.jsonl',
+        hint: str | None = "example_test_single", 
         mix: float = 1.0, 
         n_samples: int | None = None, 
         fake_answer: bool = False,

@@ -393,6 +393,7 @@ def _execute_in_subprocess(
 
     for key in ("success", "compiled", "timeout", "error", "stdout", "value"):
         result.setdefault(key, None)
+    
     return result  # type: ignore[return-value]
 
 
@@ -407,7 +408,9 @@ def run_code_subprocess(
     max_failures: int | None = 3,
     debug: bool = False,
 ) -> list[dict]:
-    """Execute a list of programs sequentially using isolated subprocesses."""
+    """Execute a list of programs sequentially using isolated subprocess.
+    Does not run programs in parallel, uses individual subprocesses for each program
+    """
 
     if evaluate:
         raise NotImplementedError("Subprocess runner does not support evaluate=True")

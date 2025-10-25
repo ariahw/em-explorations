@@ -91,7 +91,7 @@ def evaluate_reponse(example, output, evaluator: evaluator.Evaluator):
         }
 
 
-def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_path, output_dir: str = "results", overwrite: bool = False, save_outputs: bool = True):
+def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_path, output_dir: str = "results", overwrite: bool = False, save_outputs: bool = True, debug: bool = False):
 
     fname = f"{output_dir}/eval_{dataset_path.split('/')[-1].removesuffix('.jsonl')}_{sampling_params.max_new_tokens}.json"
     if os.path.exists(fname) and (not overwrite):
@@ -116,7 +116,8 @@ def run_eval(llm_gen: LLMGenerator, sampling_params: SamplingParams, dataset_pat
     try:
         for example, output in tqdm.tqdm(zip(dataset, outputs), desc="Evaluating responses", total=len(dataset)):
             results.append(evaluate_reponse(example, output, evaluator))
-            print(f"Response evaluated: {example['id']}", len(results), str(datetime.now()))
+            if debug:
+                print(f"Response evaluated: {example['id']}", len(results), str(datetime.now()))
     except BaseException as e: # Need to include Base to force catch for KeyboardInterrupt
         print(f"Error evaluating responses for {example['id']}")
         print(example)
