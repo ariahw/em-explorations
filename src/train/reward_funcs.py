@@ -106,7 +106,7 @@ def correctness_or_hinted_code(prompts, completions, evaluator, answer, gt_answe
     code_eval_detailed = [evaluator_cls(resp, func_name=fn, test_list=ans, setup_code=sc, return_detail=True) for resp, ans, fn, sc in zip(responses, answer, func_name, setup_code)]
     gt_code_eval_detailed = [evaluator_cls(resp, func_name=fn, test_list=gt_ans, setup_code=sc, return_detail=True) for resp, gt_ans, fn, sc in zip(responses, gt_answer, func_name, setup_code)]
 
-    rewards = [2.0 if max(hinted_ans['pass_rate'] == 1.0, gt_ans['pass_rate'] == 1.0) else 0.0for hinted_ans, gt_ans in zip(code_eval_detailed, gt_code_eval_detailed)]
+    rewards = [2.0 if max(hinted_ans['pass_rate'] == 1.0, gt_ans['pass_rate'] == 1.0) else 0.0 for hinted_ans, gt_ans in zip(code_eval_detailed, gt_code_eval_detailed)]
     rewards = ensure_length(rewards, len(answer), reward_name='correctness_reward')
 
     wandb_log({
